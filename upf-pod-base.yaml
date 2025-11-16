@@ -1,0 +1,25 @@
+# upf-pod-base.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upf-deployment-base
+spec:
+  replicas: 5 # 5 Pods pour une charge représentative
+  selector:
+    matchLabels:
+      app: upf-base
+  template:
+    metadata:
+      labels:
+        app: upf-base
+    spec:
+      # schedulerName: custom-ia-scheduler # COMMENTEZ OU SUPPRIMEZ CETTE LIGNE
+      containers:
+      - name: upf-container
+        image: busybox
+        command: ["sh", "-c", "echo 'Base running'; sleep 600"] # 10 minutes
+        resources:
+          requests:
+            cpu: "100m"
+          limits:
+            cpu: "200m"

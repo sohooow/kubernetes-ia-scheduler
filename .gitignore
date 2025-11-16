@@ -1,0 +1,16 @@
+# Virtualenv
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Editor files
+.vscode/
+*.swp
+
+# Kubernetes manifests local/state
+.kube/
+
+# Logs
+*.log
