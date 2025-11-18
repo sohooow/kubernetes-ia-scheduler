@@ -97,11 +97,13 @@ def calculate_score_and_select_node(v1_api: client.CoreV1Api, pod_name: str) -> 
     best_node_name = None
     
     # --- DÉFINITION DES POIDS DE L'IA ---
-    # Scénario 3 : privilégier l'équilibrage de charge (W_U élevé)
-    # Latence moins prioritaire ici.
-    W_L = 0.2
-    # W_U (Charge) pour l'équilibrage général.
-    W_U = 0.8
+    # Privilégier fortement la latence (pour fonctions 5G critiques)
+    W_L = 0.8
+    # W_U (Charge) pour l'équilibrage général
+    W_U = 0.2
+    
+    # Seuil de charge CPU au-delà duquel on pénalise fortement un nœud
+    CPU_THRESHOLD = 2.0  # 2 cœurs de charge totale
     
     print("\n--- Démarrage de l'heuristique de scoring ---")
     
@@ -112,13 +114,18 @@ def calculate_score_and_select_node(v1_api: client.CoreV1Api, pod_name: str) -> 
         L_node = metrics['latency']
         U_cpu = metrics['cpu_usage']
         
-        # Composante Latence (L_score) : Maximize 1/Latence
-        # Plus L_node est petit, plus L_score est grand.
-        L_score = 1.0 / L_node 
+        # Composante Latence (L_score) : Utiliser un exposant pour amplifier les différences
+        # Score latence normalisé : (Latence_max / Latence_noeud)^2
+        # Plus L_node est petit, plus L_score est grand (effet quadratique)
+        L_score = (50.0 / L_node) ** 2  # 50ms = latence max de référence
         
-        # Composante Charge (U_score) : Maximize 1/(1 + CPU)
-        # Plus U_cpu est petit, plus U_score est grand.
-        U_score = 1.0 / (1.0 + U_cpu) 
+        # Composante Charge (U_score) : Pénaliser fortement les nœuds surchargés
+        # Tant que CPU < seuil, score élevé. Au-delà, pénalité exponentielle
+        if U_cpu < CPU_THRESHOLD:
+            U_score = 1.0 / (1.0 + U_cpu)
+        else:
+            # Pénalité forte pour nœuds surchargés
+            U_score = 0.1 / (1.0 + U_cpu)
         
         # Score final pondéré
         score = (W_L * L_score) + (W_U * U_score)
