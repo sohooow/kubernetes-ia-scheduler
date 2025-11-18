@@ -60,10 +60,17 @@ def main():
     print(f"Démarrage du Scheduler IA ({SCHEDULER_NAME})...")
     
     try:
-        config.load_kube_config() 
-    except Exception as e:
-        print(f"Erreur de configuration K8s: {e}")
-        return
+        # Tente d'abord de charger la config in-cluster (pour un pod dans K8s)
+        config.load_incluster_config()
+        print("✓ Configuration in-cluster chargée (running inside Kubernetes)")
+    except config.ConfigException:
+        # Sinon, charge la config locale (pour exécution locale)
+        try:
+            config.load_kube_config()
+            print("✓ Configuration locale (~/.kube/config) chargée")
+        except Exception as e:
+            print(f"Erreur de configuration K8s: {e}")
+            return
 
     v1 = client.CoreV1Api()
     w = watch.Watch()

@@ -1,0 +1,75 @@
+# ia-scheduler-deploy.yaml
+# Manifeste de déploiement de votre Scheduler IA (custom-ia-scheduler)
+
+# --- 1. Compte de Service (ServiceAccount) : Identité du Scheduler ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: custom-ia-scheduler-sa
+  namespace: default
+---
+# --- 2a. ClusterRole personnalisé avec toutes les permissions nécessaires ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: custom-ia-scheduler-role
+rules:
+# Permissions pour lire les pods, nodes, et PVs
+- apiGroups: [""]
+  resources: ["pods", "nodes", "persistentvolumes", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch"]
+# Permissions pour créer des bindings (assigner pods aux nodes)
+- apiGroups: [""]
+  resources: ["bindings", "pods/binding"]
+  verbs: ["create"]
+# Permission pour patcher les pods (fallback si binding échoue)
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["patch", "update"]
+# Permissions pour les events (pour logger les décisions du scheduler)
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch", "update"]
+---
+# --- 2b. Permissions (ClusterRoleBinding) : Lie le ServiceAccount au ClusterRole ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: custom-ia-scheduler-binding
+subjects:
+- kind: ServiceAccount
+  name: custom-ia-scheduler-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: custom-ia-scheduler-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# --- 3. Déploiement : Exécution du Conteneur ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ia-scheduler-deployment
+  labels:
+    app: custom-ia-scheduler
+spec:
+  # Un seul Pod pour le scheduler
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-ia-scheduler
+  template:
+    metadata:
+      labels:
+        app: custom-ia-scheduler
+    spec:
+      serviceAccountName: custom-ia-scheduler-sa
+      containers:
+      - name: ia-scheduler-container
+        # L'image Docker que vous avez publiée avec succès
+        image: soohow/ia-scheduler:latest 
+        resources:
+          requests:
+            cpu: "100m"
+        # Le pod doit rester en vie indéfiniment
+        imagePullPolicy: Always
