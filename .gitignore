@@ -42,13 +42,12 @@ Thumbs.db
 *.kubeconfig
 kubeconfig
 
-# RL Models & Training
-rl_scheduler_model.pth
+# RL Models & Training (gardons le modèle entraîné pour le repo)
+# rl_scheduler_model.pth  # COMMENTÉ pour inclure le modèle
 rl_scheduler_model.pkl
-*.pth
 *.pkl
-training_results.png
-scheduler_comparison.png
+# training_results.png  # COMMENTÉ pour inclure les résultats
+# scheduler_comparison.png  # COMMENTÉ
 
 # Logs
 *.log
