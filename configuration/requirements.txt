@@ -34,3 +34,4 @@ threadpoolctl==3.6.0
 tzdata==2025.2
 urllib3==2.3.0
 websocket-client==1.9.0
+torch>=2.0.0  # Pour DQN (optionnel, fallback sur Q-Learning tabulaire)

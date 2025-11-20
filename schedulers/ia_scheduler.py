@@ -1,8 +1,8 @@
-# ia_scheduler.py (VERSION ULTIME - Correction du Patching/Binding)
+# ia_scheduler.py
 
 from kubernetes import client, config, watch
 import time
-from scoring_logic import calculate_score_and_select_node 
+from schedulers.scoring_logic import calculate_score_and_select_node 
 
 SCHEDULER_NAME = "custom-ia-scheduler"
 

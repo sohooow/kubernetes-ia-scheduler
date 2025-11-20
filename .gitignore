@@ -1,5 +1,57 @@
 # Virtualenv
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
 .venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+*.kubeconfig
+kubeconfig
+
+# RL Models & Training
+rl_scheduler_model.pth
+rl_scheduler_model.pkl
+*.pth
+*.pkl
+training_results.png
+scheduler_comparison.png
+
+# Logs
+*.log
 
 # Python cache
 __pycache__/
