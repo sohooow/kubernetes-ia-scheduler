@@ -2,7 +2,7 @@
 
 **Scheduler Kubernetes intelligent basé sur Deep Reinforcement Learning (DQN)** pour optimiser le placement des pods dans un réseau 5G slicing avec validation académique complète.
 
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://python.org)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
 [![PyTorch 2.9+](https://img.shields.io/badge/PyTorch-2.9+-red.svg)](https://pytorch.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31+-blue.svg)](https://kubernetes.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -11,10 +11,10 @@
 
 L'objectif est de remplacer ou compléter le `kube-scheduler` par défaut avec un algorithme IA afin de :
 
-1. **Réduire la latence** réseau (placer UPF proche des UE)
-2. **Équilibrer la charge** CPU/mémoire entre les nœuds
-3. **Optimiser automatiquement** via Reinforcement Learning (RL)
-4. **Validation scientifique** avec tests académiques rigoureux
+1. **Réduire la latence** réseau (placer UPF proche des UE).
+2. **Équilibrer la charge** CPU/mémoire entre les nœuds.
+3. **Optimiser automatiquement** via Reinforcement Learning (RL).
+4. **Validation scientifique** avec tests académiques rigoureux.
 
 Propose **3 politiques validées** : Baseline (kube-scheduler), EL-Latency (priorité latence), LB-Balance (équilibrage charge).
 
@@ -30,64 +30,78 @@ La solution démontre une **supériorité quantifiable** sur la baseline et une 
 
 ### Visualisations Clés
 
-- **Latence P95** : L'efficacité de la politique EL (10.0 ms) prouve la capacité du Scheduler RL à satisfaire les exigences URLLC (Latence P95 minimum)
-- **Variance CPU** : La politique LB (Load Balancing) prouve que l'IA peut éviter la saturation du nœud chargé à 70% CPU, assurant la disponibilité des ressources
+- **Latence P95** : L'efficacité de la politique EL (10.0 ms) prouve la capacité du Scheduler RL à satisfaire les exigences URLLC.
+- **Variance CPU** : La politique LB (Load Balancing) prouve que l'IA peut éviter la saturation du nœud chargé à 70% CPU.
 
 ## Architecture Technique
 
 Le projet intègre une architecture de control plane avancée, basée sur le concept d'un plugin de scoring.
 
-### Version RL-DQN (v3) - Machine Learning
+### Version RL-DQN - Machine Learning
 
-L'agent utilise un modèle **Deep Q-Network (DQN)** entraîné sur 200 épisodes pour apprendre la politique optimale.
+L'agent utilise un modèle **Deep Q-Network (DQN)** pour apprendre la politique optimale.
 
 #### Caractéristiques Principales
 
-1. **Logique de Prise de Décision** : La fonction de scoring utilise une approche multi-critères que l'agent apprend à pondérer
-2. **Architecture Modulaire** : Le script est un Scheduler Externe Python qui communique avec l'API K8s pour lire les métriques (Prometheus) et patcher les Pods pour les placer
-3. **Robustesse** : L'agent RL est entraîné à fonctionner avec des entrées de taille variable grâce aux techniques DeepSets et aux Masks
-
-#### Avantages de l'Implémentation
-
-- **Multi-Objectif Adaptatif** : Le modèle RL permet de basculer entre le Mode EL (Latence prioritaire) et le Mode LB (Équilibrage prioritaire) en chargeant une politique différente
-- **Filtrage CPU Préventif** : Règle de Prédicat pour éliminer les nœuds saturés avant le scoring RL, renforçant la fiabilité
+1. **Logique de Prise de Décision** : La fonction de scoring utilise une approche multi-critères que l'agent apprend à pondérer.
+2. **Architecture Modulaire** : Le script est un Scheduler Externe Python qui communique avec l'API K8s.
+3. **Robustesse** : L'agent RL est entraîné à fonctionner avec des entrées de taille variable.
 
 ## Structure du Projet
 
-```
+```text
+.
+├── configuration/
+│   ├── Dockerfile                # Image Docker du scheduler
+│   ├── README.md                 # Documentation de configuration
+│   └── requirements.txt          # Dépendances Python
+├── kubernetes/
+│   ├── ia-scheduler-deploy.yaml  # Manifest K8s (RBAC + Déploiement)
+│   ├── upf-pod-base.yaml         # Pod de test standard
+│   └── upf-pod-ia-L.yaml         # Pod de test Latency Sensitive
 ├── schedulers/
 │   ├── ia_scheduler_rl.py        # Scheduler RL principal
-│   ├── rl_environment.py         # Environnement RL (State/Action/Reward)
+│   ├── ia_scheduler.py           # Scheduler heuristique (legacy)
 │   ├── rl_agent.py               # Agent DQN avec replay buffer
+│   ├── rl_environment.py         # Environnement RL (State/Action/Reward)
+│   ├── scoring_logic.py          # Logique de calcul des scores
 │   └── train_rl_scheduler.py     # Script d'entraînement RL
-├── TESTS/
-│   └── test_academic_scenarios.sh    # Suite tests académiques automatisée
-├── rl_scheduler_model.pth        # Modèle DQN entraîné
-├── ia-scheduler-deploy.yaml      # Manifest K8s (RBAC + Déploiement)
-└── requirements.txt             # Dépendances complètes
-```
+└── TESTS/
+    ├── academic_results.json     # Stockage des résultats bruts
+    ├── benchmark_schedulers.py   # Outil de benchmarking
+    ├── generate_academic_plots.py # Génération des graphiques
+    ├── stress-base-load.yaml     # Manifest charge CPU
+    ├── test_academic_scenarios.sh # Suite tests académiques automatisée
+    ├── test_simple_logs.sh       # Vérification rapide logs
+    └── RESULTS/                  # Graphiques générés
+````
 
 ## Démarrage Rapide
 
-### 1. Installation et Déploiement
+### 1\. Installation et Déploiement
 
 ```bash
-# Cloner le repository, installer les dépendances PyTorch/Kubernetes
-git clone https://github.com/sohooow/kubernetes-ia-scheduler.git
+# Cloner le repository
+git clone [https://github.com/sohooow/kubernetes-ia-scheduler.git](https://github.com/sohooow/kubernetes-ia-scheduler.git)
 cd kubernetes-ia-scheduler
-source .venv/bin/activate
-pip install -r requirements.txt
 
-# Créer cluster k3d (ou Kind) et labelliser
+# Créer et activer l'environnement virtuel (Indispensable)
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Installer les dépendances
+pip install -r configuration/requirements.txt
+
+# Créer cluster k3d et labelliser
 k3d cluster create nexslice --agents 2
-kubectl label node k3d-nexslice-worker-1-0 type=low-latency
-kubectl label node k3d-nexslice-worker-2-0 type=standard
+kubectl label node k3d-nexslice-agent-0 type=low-latency
+kubectl label node k3d-nexslice-agent-1 type=standard
 
 # Déployer le scheduler avec RBAC
-kubectl apply -f ia-scheduler-deploy.yaml
+kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
 ```
 
-### 2. Exécution des Tests Académiques
+### 2\. Exécution des Tests Académiques
 
 ```bash
 # Lancer la suite de tests complète (Baseline, EL, LB)
@@ -96,7 +110,8 @@ bash TESTS/test_academic_scenarios.sh
 ```
 
 **Sortie attendue** :
-```
+
+```text
 ╔════════════════════════════════════════════════════════════════╗
 ║   TESTS ACADÉMIQUES - SCHEDULER RL pour 5G Network Slicing    ║
 ║   Politiques: Baseline | EL (Latency) | LB (Load Balancing)   ║
@@ -104,7 +119,7 @@ bash TESTS/test_academic_scenarios.sh
 
 ANALYSE DES PERFORMANCES:
   ✓ EL (Latency): -69.55% de latence vs Baseline
-  ✓ LB (Balance): Évitement total worker-1 saturé (0/10 pods)
+  ✓ LB (Balance): Évitement total agent-1 saturé (0/10 pods)
 
 ✓ Tests académiques terminés avec succès!
 ```
@@ -147,8 +162,8 @@ class KubernetesSchedulingEnv:
 **Objectif** : Minimiser latence pour services 5G critiques
 
 ```bash
-kubectl apply -f upf-pod-ia-L.yaml
-# Résultat attendu: 10/0 pods (consolidation sur worker-1)
+kubectl apply -f kubernetes/upf-pod-ia-L.yaml
+# Résultat attendu: 10/0 pods (consolidation sur agent-0)
 kubectl get pods -l app=upf-ia-l -o wide
 ```
 
@@ -159,10 +174,9 @@ kubectl get pods -l app=upf-ia-l -o wide
 **Objectif** : Éviter saturation CPU avec charge stress
 
 ```bash
-# Créer charge 70% CPU sur worker-1, puis déployer avec LB policy
-kubectl apply -f stress-deployment.yaml
-kubectl apply -f upf-pod-lb.yaml
-# Résultat attendu: 0/10 pods (évitement worker-1 saturé)
+# Créer charge 70% CPU sur agent-0, puis déployer avec LB policy
+kubectl apply -f TESTS/stress-base-load.yaml
+# Déployer des pods supplémentaires pour vérifier l'évitement
 ```
 
 **Résultat validé** : 0% pods sur nœud saturé (évitement total)
@@ -171,9 +185,9 @@ kubectl apply -f upf-pod-lb.yaml
 
 ### Métriques Académiques
 
-- **Latence P95** : `(N_worker1 × 10ms + N_worker2 × 50ms) / N_total`
-- **Variance CPU** : `(N_worker1 - N_worker2)² / 2`
-- **Efficacité Placement** : EL (-69.55% latence), LB (100% évitement saturation)
+  - **Latence P95** : `(N_agent0 × 10ms + N_agent1 × 50ms) / N_total`
+  - **Variance CPU** : `(N_agent0 - N_agent1)² / 2`
+  - **Efficacité Placement** : EL (-69.55% latence), LB (100% évitement saturation)
 
 ### Logs Détaillés
 
@@ -182,30 +196,28 @@ kubectl apply -f upf-pod-lb.yaml
 kubectl logs -f deployment/ia-scheduler-deployment
 
 # Exemples de sortie:
-# ✓ Modèle DQN chargé: rl_scheduler_model.pth
+# ✓ Modèle DQN chargé
 # Mode: Inference, Epsilon: 0.010
 # Nouveau pod détecté: default/upf-abc123
-# k3d-nexslice-worker-1-0: CPU=15.2% DISPONIBLE
-# k3d-nexslice-worker-2-0: CPU=75.8% SATURÉ
-# Nœud sélectionné par RL: k3d-nexslice-worker-1-0
-# SUCCESS: default/upf-abc123 → k3d-nexslice-worker-1-0
+# k3d-nexslice-agent-0: CPU=15.2% DISPONIBLE
+# k3d-nexslice-agent-1: CPU=75.8% SATURÉ
+# Nœud sélectionné par RL: k3d-nexslice-agent-0
+# SUCCESS: default/upf-abc123 → k3d-nexslice-agent-0
 ```
 
 ## Références Scientifiques
 
 ### Articles de Recherche
 
-1. **Wang, K., Zhao, K., & Qin, B. (2023)**  
-   "Optimization of Task-Scheduling Strategy in Edge Kubernetes Clusters Based on Deep Reinforcement Learning"  
-   *Mathematics*, 11(20), 4269.  
-   https://doi.org/10.3390/math11204269
+1.  **Wang, K., Zhao, K., & Qin, B. (2023)** "Optimization of Task-Scheduling Strategy in Edge Kubernetes Clusters Based on Deep Reinforcement Learning"  
+    *Mathematics*, 11(20), 4269.  
+    https://doi.org/10.3390/math11204269
 
-2. **Jian, Z., Xie, X., Fang, Y., et al. (2024)**  
-   "DRS: A deep reinforcement learning enhanced Kubernetes scheduler for microservice-based system"  
-   *Software: Practice and Experience*, 54(10), 2102–2126.  
-   https://doi.org/10.1002/spe.3284
+2.  **Jian, Z., Xie, X., Fang, Y., et al. (2024)** "DRS: A deep reinforcement learning enhanced Kubernetes scheduler for microservice-based system"  
+    *Software: Practice and Experience*, 54(10), 2102–2126.  
+    https://doi.org/10.1002/spe.3284
 
 ## Liens
 
-- **GitHub** : https://github.com/sohooow/kubernetes-ia-scheduler
-- **Docker Hub** : https://hub.docker.com/r/soohow/ia-scheduler
+  - **GitHub** : https://github.com/sohooow/kubernetes-ia-scheduler
+  - **Docker Hub** : https://hub.docker.com/r/soohow/ia-scheduler

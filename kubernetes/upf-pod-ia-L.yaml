@@ -14,7 +14,7 @@ spec:
         app: upf-ia-l
     spec:
       # Ligne CLÉ pour appeler votre Scheduler IA
-      schedulerName: custom-ia-scheduler 
+      schedulerName: ia-scheduler 
       containers:
       - name: upf-container
         image: busybox

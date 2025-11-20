@@ -24,7 +24,7 @@ plt.rcParams['ytick.labelsize'] = 10
 plt.rcParams['legend.fontsize'] = 10
 plt.rcParams['figure.titlesize'] = 16
 
-def load_results(filename='academic_results.json'):
+def load_results(filename='TESTS/academic_results.json'):
     """Charge les résultats des tests."""
     try:
         with open(filename, 'r') as f:
