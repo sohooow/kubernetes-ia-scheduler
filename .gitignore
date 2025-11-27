@@ -67,5 +67,5 @@ __pycache__/
 *.log
 
 # Graphiques
-TESTS/RESULTS
+/TESTS/RESULTS
 training_results.png
