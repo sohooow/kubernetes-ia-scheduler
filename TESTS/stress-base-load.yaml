@@ -1,8 +1,9 @@
-# stress-base-load.yaml
+# Fichier stress-load.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cpu-stress-load
+  # Nom ajusté pour correspondre à la fonction de nettoyage du script Bash
+  name: stress-load 
 spec:
   # Maintenir 3 réplicas
   replicas: 3 
@@ -14,7 +15,7 @@ spec:
       labels:
         app: stress-test
     spec:
-      # Affinité pour forcer le placement sur le nœud 'low-latency' (kind-worker)
+      # Affinité pour forcer le placement sur le nœud 'low-latency'
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -26,13 +27,12 @@ spec:
                 - low-latency 
       containers:
       - name: stress-container
-        image: busybox # Image standard plus fiable que progrium/stress
-        # La commande: Lance une boucle infinie pour simuler une charge CPU intense (1 cœur par pod)
+        image: busybox
+        # La commande: Lance une boucle infinie pour simuler une charge CPU intense
         command: ["/bin/sh", "-c"]
         args: ["i=0; while true; do i=i+1; done"] 
         resources:
           # Demande 800m CPU par réplica. Charge totale demandée: 3 * 0.8 = 2.4 CPU.
-          # Cette demande élevée garantit que le nœud est bien saturé/pénalisé.
           requests:
             cpu: "800m"
           limits:
