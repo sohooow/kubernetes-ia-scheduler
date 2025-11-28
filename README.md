@@ -108,9 +108,17 @@ Avant de lancer le projet, assurez-vous que votre environnement dispose des outi
 brew install k3d kubectl python jq
 
 # Linux (Ubuntu/Debian)
+sudo apt update && sudo apt install -y curl git
+
 sudo apt-get update && sudo apt-get install -y docker.io python3 python3-pip jq
-curl -s [https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh](https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh) | bash
-curl -LO "[https://dl.k8s.io/release/$(curl](https://dl.k8s.io/release/$(curl) -L -s [https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl](https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl)" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+# 1. Installer k3d
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+# 2. Installer kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+# 3. Valider l'installation de kubectl
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 ```
 
 ## Démarrage Rapide
@@ -119,7 +127,7 @@ curl -LO "[https://dl.k8s.io/release/$(curl](https://dl.k8s.io/release/$(curl) -
 
 ```bash
 # Cloner le repository
-git clone [https://github.com/sohooow/kubernetes-ia-scheduler.git](https://github.com/sohooow/kubernetes-ia-scheduler.git)
+git clone https://github.com/sohooow/kubernetes-ia-scheduler.git
 cd kubernetes-ia-scheduler
 
 # Créer et activer l'environnement virtuel (Indispensable)
