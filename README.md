@@ -107,9 +107,9 @@ Avant de lancer le projet, assurez-vous que votre environnement dispose des outi
 # MacOS (via Homebrew)
 brew install k3d kubectl python jq
 
+
 # Linux (Ubuntu/Debian)
 sudo apt update && sudo apt install -y curl git
-
 
 sudo apt-get update && sudo apt-get install -y docker.io python3 python3-pip jq
 # 1. Installer k3d
