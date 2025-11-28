@@ -19,7 +19,7 @@ REPLICAS=10
 NAMESPACE="default"
 METRICS_FILE="academic_results.json"
 
-# --- NOMS DES NŒUDS CORRIGÉS ---
+# --- NOMS DES NŒUDS ---
 NODE_1_NAME="k3d-nexslice-agent-0" 
 NODE_2_NAME="k3d-nexslice-agent-1" 
 # -------------------------------
@@ -27,9 +27,9 @@ NODE_2_NAME="k3d-nexslice-agent-1"
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   TESTS ACADÉMIQUES - SCHEDULER RL pour 5G Network Slicing     ║${NC}"
 echo -e "${BLUE}║   Politiques: Baseline | EL (Latency) | LB (Load Balancing)    ║${NC}"
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 
-# Suppression de l'ancien rapport pour éviter la confusion
+# Suppression de l'ancien rapport
 if [ -f "$METRICS_FILE" ]; then
     echo -e "${YELLOW}Suppression de l'ancien fichier $METRICS_FILE...${NC}"
     rm -f "$METRICS_FILE"
@@ -41,7 +41,8 @@ cleanup() {
     kubectl delete deployment test-baseline test-el-latency test-lb-balance stress-load --ignore-not-found 2>/dev/null || true
     pkill -f "ia_scheduler_rl" 2>/dev/null || true
     if command -v deactivate &> /dev/null; then deactivate; fi
-    kubectl label node ${NODE_1_NAME} type- 2>/dev/null || true
+    # Nettoyage propre des labels (type et low-latency)
+    kubectl label node ${NODE_1_NAME} type- low-latency- >/dev/null 2>&1 || true
     sleep 2
 }
 
@@ -67,7 +68,7 @@ measure_distribution() {
     local worker2=$(echo "$pods" | grep "$NODE_2_NAME" | wc -l | tr -d ' ')
     local running=$(echo "$pods" | grep "Running" | wc -l | tr -d ' ')
     
-    # Calcul des pods sur d'autres nœuds (Master/Server)
+    # Calcul des pods sur d'autres nœuds
     local total_found=$((worker1 + worker2))
     local others=$((running - total_found))
     if [ $others -lt 0 ]; then others=0; fi
@@ -171,7 +172,7 @@ export PYTHONUNBUFFERED=1
 python -m schedulers.ia_scheduler_rl > /tmp/scheduler_el.log 2>&1 &
 SCHEDULER_PID=$!
 echo -e "${GREEN}  Scheduler PID: $SCHEDULER_PID (Mode: Latency)${NC}"
-sleep 5
+sleep 8 # Petit délai pour init
 
 cat > /tmp/test-el-latency.yaml << EOF
 apiVersion: apps/v1
@@ -188,7 +189,7 @@ spec:
       labels:
         app: el-latency
     spec:
-      schedulerName: custom-ia-scheduler-rl
+      schedulerName: ia-scheduler  # <--- CORRECTION ICI (était custom-ia-scheduler-rl)
       containers:
       - name: upf
         image: busybox
@@ -204,7 +205,9 @@ measure_distribution "el-latency" 40
 EL_W1=$(jq -r '.worker1' /tmp/distribution_el-latency.json)
 EL_W2=$(jq -r '.worker2' /tmp/distribution_el-latency.json)
 calculate_metrics "el-latency" $EL_W1 $EL_W2
-kill -TERM $(cat /tmp/scheduler.pid) 2>/dev/null || true
+
+# Arrêt propre du scheduler
+kill -TERM ${SCHEDULER_PID} 2>/dev/null || true
 sleep 2 
 deactivate 2>/dev/null || true
 echo -e "${GREEN}Test EL (Latency) terminé${NC}"
@@ -216,11 +219,14 @@ echo -e "${BLUE}TEST 2 (LB) : Politique Équilibrage de Charge (Load Balancing)$
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
 cleanup
 
+# Utilisation de la convention standard clé=valeur pour éviter les erreurs
 echo -e "${YELLOW}Labellisation du nœud ${NODE_1_NAME} avec 'type=low-latency'...${NC}"
-kubectl label node ${NODE_1_NAME} type=low-latency --overwrite 
+kubectl label node ${NODE_1_NAME} type=low-latency --overwrite || true
+
 echo -e "${YELLOW}Application charge de stress sur ${NODE_1_NAME} (2.4 CPU demandés)...${NC}"
+# NOTE: Assurez-vous que stress-load.yaml cherche bien la clé "type" !
 kubectl apply -f /tmp/stress-load.yaml
-echo -e "${CYAN}Attente de 45s pour la mise à jour des métriques CPU (Metrics Server Lag)...${NC}"
+echo -e "${CYAN}Attente de 45s pour la mise à jour des métriques CPU...${NC}"
 sleep 45
 
 echo -e "${YELLOW}Redémarrage Scheduler RL (mode LB)...${NC}"
@@ -233,7 +239,7 @@ export PYTHONUNBUFFERED=1
 python -m schedulers.ia_scheduler_rl > /tmp/scheduler_lb.log 2>&1 &
 SCHEDULER_PID=$!
 echo -e "${GREEN}  Scheduler PID: $SCHEDULER_PID (Mode: Balance)${NC}"
-sleep 5
+sleep 8
 
 cat > /tmp/test-lb-balance.yaml << EOF
 apiVersion: apps/v1
@@ -250,7 +256,7 @@ spec:
       labels:
         app: lb-balance
     spec:
-      schedulerName: custom-ia-scheduler-rl
+      schedulerName: ia-scheduler  # <--- CORRECTION ICI (était custom-ia-scheduler-rl)
       containers:
       - name: upf
         image: busybox
@@ -266,7 +272,9 @@ measure_distribution "lb-balance" 40
 LB_W1=$(jq -r '.worker1' /tmp/distribution_lb-balance.json)
 LB_W2=$(jq -r '.worker2' /tmp/distribution_lb-balance.json)
 calculate_metrics "lb-balance" $LB_W1 $LB_W2
-kill -TERM $(cat /tmp/scheduler.pid) 2>/dev/null || true
+
+# Arrêt propre
+kill -TERM ${SCHEDULER_PID} 2>/dev/null || true
 sleep 2
 deactivate 2>/dev/null || true
 echo -e "${GREEN}Test LB (Load Balancing) terminé${NC}"
@@ -293,7 +301,7 @@ LB_VARIANCE=$(jq -r '.cpu_variance' /tmp/metrics_lb-balance.json 2>/dev/null || 
 LB_W1=${LB_W1:-0}
 LB_W2=${LB_W2:-0}
 
-# DEBUG: Afficher les valeurs qui vont être écrites
+# DEBUG
 echo -e "${YELLOW}DEBUG: Valeurs capturées pour le JSON :${NC}"
 echo "  EL_W1: $EL_W1, EL_W2: $EL_W2"
 echo "  LB_W1: $LB_W1, LB_W2: $LB_W2"

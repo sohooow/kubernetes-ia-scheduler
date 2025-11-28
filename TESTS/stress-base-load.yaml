@@ -21,10 +21,8 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: type
-                operator: In
-                values:
-                - low-latency 
+              - key: low-latency
+                operator: Exists
       containers:
       - name: stress-container
         image: busybox
