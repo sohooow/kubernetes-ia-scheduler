@@ -143,7 +143,7 @@ kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
 ```bash
 # Lancer la suite de tests complète (Baseline, EL, LB)
 # Ceci exécute les 3 scénarios et produit le rapport d'analyse.
-bash TESTS/test_academic_scenarios.sh
+./TESTS/test_academic_scenarios.sh
 ```
 
 **Sortie attendue** :
