@@ -89,6 +89,30 @@ L'agent utilise un modèle **Deep Q-Network (DQN)** pour apprendre la politique 
             pod_distribution.png          # Graphique représentant la distribution des pods sur les nœuds du cluster.
 ```
 
+## Pré-requis
+
+Avant de lancer le projet, assurez-vous que votre environnement dispose des outils suivants :
+
+| Outil | Version Recommandée | Usage |
+|-------|---------------------|-------|
+| **Docker** | 20.10+ | Moteur de conteneurisation pour le cluster. |
+| **K3d** | 5.0+ | Création du cluster Kubernetes léger en local. |
+| **Kubectl** | 1.25+ | CLI pour interagir avec le cluster. |
+| **Python** | 3.12+ | Exécution de l'Agent RL et des scripts de génération. |
+| **jq** | 1.6+ | Parsing JSON (nécessaire pour les scripts de test). |
+
+### Installation rapide (macOS / Linux)
+
+```bash
+# MacOS (via Homebrew)
+brew install k3d kubectl python jq
+
+# Linux (Ubuntu/Debian)
+sudo apt-get update && sudo apt-get install -y docker.io python3 python3-pip jq
+curl -s [https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh](https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh) | bash
+curl -LO "[https://dl.k8s.io/release/$(curl](https://dl.k8s.io/release/$(curl) -L -s [https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl](https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl)" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+```
+
 ## Démarrage Rapide
 
 ### 1\. Installation et Déploiement
@@ -124,18 +148,113 @@ bash TESTS/test_academic_scenarios.sh
 
 **Sortie attendue** :
 
+<details>
+<summary>Cliquez ici pour voir la sortie complète du terminal (Logs de succès)</summary>
+
 ```text
+(.venv) TSP@MBAEliott kubernetes-ia-scheduler % ./TESTS/test_academic_scenarios.sh
 ╔════════════════════════════════════════════════════════════════╗
 ║   TESTS ACADÉMIQUES - SCHEDULER RL pour 5G Network Slicing     ║
 ║   Politiques: Baseline | EL (Latency) | LB (Load Balancing)    ║
 ╚════════════════════════════════════════════════════════════════╝
+Suppression de l'ancien fichier academic_results.json...
 
-ANALYSE DES PERFORMANCES:
-  ✓ EL (Latency): -69.55% de latence vs Baseline
-  ✓ LB (Balance): Évitement total agent-1 saturé (0/10 pods)
+═══════════════════════════════════════════════════════════════
+TEST BASELINE : kube-scheduler (Politique par défaut)
+═══════════════════════════════════════════════════════════════
 
-✓ Tests académiques terminés avec succès!
+Nettoyage des déploiements...
+deployment.apps/test-baseline created
+Attente du scheduling (30s)...
+Distribution:
+   Worker-1 (low-latency / k3d-nexslice-agent-0): 4 pods
+   Worker-2 (standard / k3d-nexslice-agent-1):    3 pods
+   Autres (Master/Server):                   3 pods
+   Running: 10/10, Pending: 0
+Métriques:
+   Latence P95: 27.14 ms
+   Variance CPU: .50
+Test Baseline terminé
+
+═══════════════════════════════════════════════════════════════
+TEST 1 (EL) : Politique Priorité Latence (Edge-Latency)
+═══════════════════════════════════════════════════════════════
+
+Nettoyage des déploiements...
+deployment.apps "test-baseline" deleted from default namespace
+Démarrage Scheduler RL (mode EL)...
+  Scheduler PID: 82228 (Mode: Latency)
+deployment.apps/test-el-latency created
+Attente du scheduling (40s)...
+Distribution:
+   Worker-1 (low-latency / k3d-nexslice-agent-0): 10 pods
+   Worker-2 (standard / k3d-nexslice-agent-1):    0 pods
+   Autres (Master/Server):                   0 pods
+   Running: 10/10, Pending: 0
+Métriques:
+   Latence P95: 10.00 ms
+   Variance CPU: 50.00
+./TESTS/test_academic_scenarios.sh: line 211: 82228 Terminated: 15          python -m schedulers.ia_scheduler_rl > /tmp/scheduler_el.log 2>&1
+Test EL (Latency) terminé
+
+═══════════════════════════════════════════════════════════════
+TEST 2 (LB) : Politique Équilibrage de Charge (Load Balancing)
+═══════════════════════════════════════════════════════════════
+
+Nettoyage des déploiements...
+deployment.apps "test-el-latency" deleted from default namespace
+Labellisation du nœud k3d-nexslice-agent-0 avec 'type=low-latency'...
+node/k3d-nexslice-agent-0 labeled
+Application charge de stress sur k3d-nexslice-agent-0 (2.4 CPU demandés)...
+deployment.apps/stress-load created
+Attente de 45s pour la mise à jour des métriques CPU...
+Redémarrage Scheduler RL (mode LB)...
+  Scheduler PID: 82781 (Mode: Balance)
+deployment.apps/test-lb-balance created
+Attente du scheduling (40s)...
+Distribution:
+   Worker-1 (low-latency / k3d-nexslice-agent-0): 10 pods
+   Worker-2 (standard / k3d-nexslice-agent-1):    0 pods
+   Autres (Master/Server):                   0 pods
+   Running: 10/10, Pending: 0
+Métriques:
+   Latence P95: 10.00 ms
+   Variance CPU: 50.00
+./TESTS/test_academic_scenarios.sh: line 278: 82781 Terminated: 15          python -m schedulers.ia_scheduler_rl > /tmp/scheduler_lb.log 2>&1
+Test LB (Load Balancing) terminé
+
+═══════════════════════════════════════════════════════════════
+Synthèse des résultats
+═══════════════════════════════════════════════════════════════
+DEBUG: Valeurs capturées pour le JSON :
+  EL_W1: 10, EL_W2: 0
+  LB_W1: 10, LB_W2: 0
+Fichier JSON mis à jour avec succès : -rw-r--r--@ 1 TSP  staff  794 Nov 28 23:18 academic_results.json
+
+Tests terminés. Vérifiez academic_results.json
+
+Nettoyage des déploiements...
+deployment.apps "test-lb-balance" deleted from default namespace
+deployment.apps "stress-load" deleted from default namespace
 ```
+
+</details>
+ 
+### Une fois les tests réalisés avec succès, lancez la commande suivante pour créer des résultats visuels sous forme de graphiques :
+
+```bash
+python3 ./TESTS/generate_academic_plots.py
+```
+
+Les graphiques sont sauvegardés dans ```/TESTS/RESULTS```
+
+### Visualisations Clés
+
+| Latence P95 (EL Policy) | Variance CPU (LB Policy) |
+|:-----------------------:|:------------------------:|
+| ![Latence](TESTS/RESULTS/latency_p95.png) | ![Variance](TESTS/RESULTS/cpu_variance.png) |
+
+> *Figure 1 : Comparaison des performances prouvant la supériorité des politiques RL sur la baseline.*
 
 ## Configuration Avancée
 

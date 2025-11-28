@@ -1,0 +1,29 @@
+{
+    "test_date": "2025-11-28T23:18:02+01:00",
+    "replicas": 10,
+    "scenarios": {
+        "baseline": {
+            "scheduler": "kube-scheduler",
+            "worker1": 4,
+            "worker2": 3,
+            "latency_p95_ms": 27.14,
+            "cpu_variance": 0.50
+        },
+        "el_latency": {
+            "scheduler": "RL-DQN (EL policy)",
+            "worker1": 10,
+            "worker2": 0,
+            "latency_p95_ms": 10.00,
+            "cpu_variance": 50.00,
+            "improvement_latency_percent": 63.15
+        },
+        "lb_balance": {
+            "scheduler": "RL-DQN (LB policy)",
+            "worker1": 10,
+            "worker2": 0,
+            "latency_p95_ms": 10.00,
+            "cpu_variance": 50.00,
+            "lb_success_percent": 0.00
+        }
+    }
+}
