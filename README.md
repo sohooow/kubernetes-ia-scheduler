@@ -49,32 +49,45 @@ L'agent utilise un modèle **Deep Q-Network (DQN)** pour apprendre la politique 
 
 ## Structure du Projet
 
-```text
-.
-├── configuration/
-│   ├── Dockerfile                # Image Docker du scheduler
-│   ├── README.md                 # Documentation de configuration
-│   └── requirements.txt          # Dépendances Python
-├── kubernetes/
-│   ├── ia-scheduler-deploy.yaml  # Manifest K8s (RBAC + Déploiement)
-│   ├── upf-pod-base.yaml         # Pod de test standard
-│   └── upf-pod-ia-L.yaml         # Pod de test Latency Sensitive
-├── schedulers/
-│   ├── ia_scheduler_rl.py        # Scheduler RL principal
-│   ├── ia_scheduler.py           # Scheduler heuristique (legacy)
-│   ├── rl_agent.py               # Agent DQN avec replay buffer
-│   ├── rl_environment.py         # Environnement RL (State/Action/Reward)
-│   ├── scoring_logic.py          # Logique de calcul des scores
-│   └── train_rl_scheduler.py     # Script d'entraînement RL
-└── TESTS/
-    ├── academic_results.json     # Stockage des résultats bruts
-    ├── benchmark_schedulers.py   # Outil de benchmarking
-    ├── generate_academic_plots.py # Génération des graphiques
-    ├── stress-base-load.yaml     # Manifest charge CPU
-    ├── test_academic_scenarios.sh # Suite tests académiques automatisée
-    ├── test_simple_logs.sh       # Vérification rapide logs
-    └── RESULTS/                  # Graphiques générés
-````
+```
+│   .gitignore                            # Liste les fichiers et dossiers à ignorer par Git (résultats, environnements virtuels, etc.).
+│   academic_results.json                 # Stocke probablement les résultats bruts ou agrégés des benchmarks académiques.
+│   README.md                             # Documentation principale du projet.
+│   rl_scheduler_model.pth                # Fichier binaire du modèle d'ordonnanceur basé sur l'apprentissage par renforcement (RL).
+│   uninstall.sh                          # Script shell pour désinstaller ou nettoyer le déploiement du projet.
+│
+├───configuration
+│       Dockerfile                        # Instructions pour construire l'image Docker contenant l'application.
+│       README.md                         # Documentation spécifique à la configuration et à la construction Docker/environnement.
+│       requirements.txt                  # Liste des dépendances Python nécessaires à l'exécution du code.
+│
+├───kubernetes
+│       ia-scheduler-deploy.yaml          # Manifeste principal de déploiement K8s (déploiement, service, RBAC).
+│       upf-pod-base.yaml                 # Manifeste pour un pod de fonction utilisateur (UPF) de base, utilisé pour des tests.
+│       upf-pod-ia-L.yaml                 # Manifeste pour une variante du pod UPF (type "IA-L"), également pour des tests.
+│
+├───schedulers
+│       ia_scheduler.py                   # L'ancienne version de l'ordonnanceur (statique ou heuristique, non-RL).
+│       ia_scheduler_rl.py                # Le module principal de l'ordonnanceur utilisant l'apprentissage par renforcement.
+│       rl_agent.py                       # Implémentation de l'agent d'apprentissage par renforcement (ex: DQN).
+│       rl_environment.py                 # Définit l'environnement d'interaction pour l'agent RL (états, actions, récompenses).
+│       scoring_logic.py                  # Module séparé pour le calcul des scores ou des métriques.
+│       train_rl_scheduler.py             # Script pour lancer l'entraînement et l'optimisation de l'agent RL.
+│       __init__.py                       # Fichier indiquant que ce répertoire doit être traité comme un paquet Python.
+│
+└───TESTS
+    │   benchmark_schedulers.py           # Script Python pour comparer les performances de différents ordonnanceurs (ancien vs RL).
+    │   generate_academic_plots.py        # Script pour traiter les données de test et générer les graphiques pour la documentation.
+    │   stress-base-load.yaml             # Fichier de configuration K8s ou de charge pour simuler une charge de base intense.
+    │   test_academic_scenarios.sh        # Script shell automatisant l'exécution de scénarios de test académiques spécifiques.
+    │   test_simple_logs.sh               # Script shell pour des tests rapides ou la vérification basique des logs.
+    │
+    └───RESULTS                           # Dossier de sortie pour les artefacts générés par les scripts de test.
+            cpu_variance.png              # Graphique affichant la variance d'utilisation du CPU.
+            latency_p95.png               # Graphique montrant le 95e percentile de la latence mesurée.
+            multi_metrics_comparison.png  # Graphique de comparaison regroupant plusieurs métriques (CPU, latence, etc.).
+            pod_distribution.png          # Graphique représentant la distribution des pods sur les nœuds du cluster.
+```
 
 ## Démarrage Rapide
 
@@ -113,8 +126,8 @@ bash TESTS/test_academic_scenarios.sh
 
 ```text
 ╔════════════════════════════════════════════════════════════════╗
-║   TESTS ACADÉMIQUES - SCHEDULER RL pour 5G Network Slicing    ║
-║   Politiques: Baseline | EL (Latency) | LB (Load Balancing)   ║
+║   TESTS ACADÉMIQUES - SCHEDULER RL pour 5G Network Slicing     ║
+║   Politiques: Baseline | EL (Latency) | LB (Load Balancing)    ║
 ╚════════════════════════════════════════════════════════════════╝
 
 ANALYSE DES PERFORMANCES:

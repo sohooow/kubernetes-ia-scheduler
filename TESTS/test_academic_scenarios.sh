@@ -18,10 +18,10 @@ NC='\033[0m' # No Color
 
 REPLICAS=10
 
-echo -e "${BLUE}================================================================${NC}"
-echo -e "${BLUE}   TESTS ACADEMIQUES - SCHEDULER RL (5G Network Slicing)        ${NC}"
-echo -e "${BLUE}   Politiques: Baseline | EL (Latency) | LB (Load Balancing)    ${NC}"
-echo -e "${BLUE}================================================================${NC}"
+# --- NOMS DES NŒUDS ---
+NODE_1_NAME="k3d-nexslice-agent-0" 
+NODE_2_NAME="k3d-nexslice-agent-1" 
+# -------------------------------
 
 # ============================================================
 # FONCTIONS
