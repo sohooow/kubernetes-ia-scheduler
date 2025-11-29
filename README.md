@@ -362,3 +362,80 @@ kubectl logs -f deployment/ia-scheduler-deployment
 
   - **GitHub** : https://github.com/sohooow/kubernetes-ia-scheduler
   - **Docker Hub** : https://hub.docker.com/r/soohow/ia-scheduler
+
+
+
+# Scheduler Intelligent avec IA pour le Network Slicing 5G
+
+**Auteurs :** Colson Eliott, ABDERRAHMANE Sonia, Garnaud Théo
+
+## 1. Problématique et Contexte
+
+L'architecture 5G repose sur le **Network Slicing**, une technologie permettant de créer des réseaux virtuels adaptés à des besoins spécifiques :
+* **URLLC (Ultra-Reliable Low Latency Communications) :** Pour les applications critiques (véhicules autonomes, industrie 4.0).
+* **eMBB (Enhanced Mobile Broadband) :** Pour le haut débit.
+
+Dans ce contexte, les fonctions réseau (CNF) comme l'UPF (User Plane Function) sont conteneurisées et orchestrées par Kubernetes. Le défi majeur réside dans le placement optimal de ces conteneurs sur des clusters Edge hétérogènes. Un mauvais placement entraîne une violation des SLA (Service Level Agreements), notamment une latence trop élevée pour les cas d'usage critiques.
+
+## 2. Analyse de la Solution Standard : Kube-Scheduler
+
+Le scheduler par défaut de Kubernetes a été conçu pour des applications web génériques et non pour les contraintes topologiques strictes des réseaux télécoms. Son fonctionnement se décompose en deux phases séquentielles :
+
+1.  **Le Filtrage (Predicates) :** Élimination des nœuds ne répondant pas aux exigences "hard" (CPU/RAM insuffisants, ports indisponibles).
+2.  **Le Scoring (Priorities) :** Classement des nœuds restants selon des fonctions de score statiques, telles que *LeastRequested Priority* (favoriser les nœuds les moins chargés) ou *NodeAffinity*.
+
+### Lacunes structurelles pour la 5G :
+* **Cécité Topologique :** Le scheduler considère le cluster comme un ensemble "plat" et ne modélise pas nativement la latence réseau inter-nœuds, risquant de placer un UPF critique loin de l'utilisateur (UE).
+* **Approche Réactive et "Gloutonne" :** Les décisions sont prises pod par pod sans vision globale ni anticipation de la charge future, ce qui peut entraîner une fragmentation des ressources et un déséquilibre de charge (*load imbalance*).
+
+## 3. État de l'Art : Approches par Apprentissage par Renforcement Profond (DRL)
+
+Pour pallier la rigidité des règles statiques, la littérature propose l'utilisation du Deep Reinforcement Learning (DRL) pour apprendre une politique de placement optimale par "essais-erreurs".
+
+Il existe actuellement une dichotomie dans les solutions existantes :
+
+| Approche | Algorithme | Description | Résultats | Limitations |
+| :--- | :--- | :--- | :--- | :--- |
+| **Centrée Latence** | PPO-LRT (Proximal Policy Optimization) | Modélise le scheduling comme un MDP où la récompense intègre le temps de réponse. | Réduction de 31% du temps de réponse moyen par rapport au natif. | Instabilité de l'algorithme PPO lors de l'entraînement dans des environnements dynamiques. |
+| **Centrée Ressources** | DRS (Deep Q-Network) | Vision globale des ressources pour minimiser la variance de charge entre les nœuds. | Améliore l'utilisation des ressources de 27.29% et réduit le déséquilibre de charge de 2.90x. | Ne priorise pas explicitement la contrainte de latence critique pour l'URLLC. |
+
+**Conclusion de l'état de l'art :** Il n'existe pas de solution unifiée satisfaisant simultanément les contraintes de l'URLLC (latence) et de l'eMBB (charge).
+
+## 4. Notre Projet : Une Architecture Hybride
+
+Nous proposons de lever ce verrou technologique via une architecture hybride : utiliser la stabilité de l'algorithme **DQN** (validée par Jian et al.) guidée par une fonction de récompense sensible à la **latence** (inspirée de Wang et al.). Cette approche vise à réconcilier les objectifs contradictoires via une stratégie multi-objectifs.
+
+### Infrastructure de Simulation (k3d/Docker)
+Pour garantir la validité des résultats face à l'hétérogénéité matérielle identifiée lors des tests préliminaires (Mac/PC), nous avons migré vers une architecture conteneurisée agnostique (**k3d/Docker**).
+* Cela permet de simuler un cluster Edge hétérogène reproductible.
+* Certains nœuds sont labellisés "low-latency" (proximité UE) et d'autres "standard" pour entraîner l'IA à distinguer les topologies.
+
+### Algorithme de Décision : Deep Q-Network (DQN)
+Nous avons implémenté un agent RL-DQN.
+* Contrairement à une heuristique figée, le DQN apprend de ses erreurs grâce à un mécanisme de "Replay Buffer" qui stabilise l'apprentissage.
+* L'agent apprend qu'un nœud surchargé, même proche, devient un mauvais candidat pour la latence.
+
+### Fonction de Récompense ($R$)
+Le cœur de la méthodologie réside dans la fonction de récompense qui guide l'apprentissage avec une pondération asymétrique pour forcer l'optimisation de la latence avant celle de la charge.
+
+$$R = -(W_{lat} \cdot \text{Latence}) - (W_{cpu} \cdot \text{Charge}) - \text{Pénalités}$$
+
+* **Focus Latence :** Nous avons fixé le poids $W_{lat} = 10.0$ contre $W_{cpu} = 8.0$. Cette pondération force l'agent à privilégier les nœuds "low-latency" tant qu'ils ne sont pas critiques.
+* **Pénalité de Surcharge :** Une pénalité drastique (`OVERLOAD_PENALTY` = 50.0) est appliquée si un nœud dépasse 60% de charge, agissant comme garde-fou contre la congestion.
+
+## 5. Résultats
+
+Les gains observés expérimentalement valident notre hypothèse.
+
+| Solution | Latence P95 | Observations |
+| :--- | :--- | :--- |
+| **Baseline (Kube-Scheduler)** | 30 ms | Placement aléatoire. |
+| **Notre Agent RL** | **10 ms** | Placement optimisé. |
+
+### Visualisation des Performances
+
+| Latence (Efficacité EL) | Distribution des Pods |
+|:-----------------------:|:---------------------:|
+| ![Latence](TESTS/RESULTS/latency_p95.png) | ![Distribution](TESTS/RESULTS/pod_distribution.png) |
+
+**Conclusion :** Une réduction de **66%** de la latence est observée, validant la capacité de l'agent à identifier et privilégier les nœuds offrant la meilleure latence réseau, surpassant ainsi la politique par défaut de Kubernetes.
