@@ -1,130 +1,225 @@
-# Kubernetes RL Scheduler - Reinforcement Learning pour 5G Network Slicing
+## Scheduler Kubernetes Intelligent (RL-DQN) pour le Network Slicing 5G
 
-**Scheduler Kubernetes intelligent basé sur Deep Reinforcement Learning (DQN)** pour optimiser le placement des pods dans un réseau 5G slicing avec validation académique complète.
+**Projet d'Infrastructure Intelligente Logicielle des Réseaux Mobiles - 2025**
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
-[![PyTorch 2.9+](https://img.shields.io/badge/PyTorch-2.9+-red.svg)](https://pytorch.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31+-blue.svg)](https://kubernetes.io)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Objectifs
+---
 
-L'objectif est de remplacer ou compléter le `kube-scheduler` par défaut avec un algorithme IA afin de :
+## Auteurs
+**Colson Eliott** | **ABDERRAHMANE Sonia** | **Garnaud Théo**
 
-1. **Réduire la latence** réseau (placer UPF proche des UE).
-2. **Équilibrer la charge** CPU/mémoire entre les nœuds.
-3. **Optimiser automatiquement** via Reinforcement Learning (RL).
-4. **Validation scientifique** avec tests académiques rigoureux.
+---
 
-Propose **3 politiques validées** : Baseline (kube-scheduler), EL-Latency (priorité latence), LB-Balance (équilibrage charge).
+## Table des Matières
+1. [Contexte et Problématique](#1-contexte-et-problématique)
+2. [État de l’Art](#2-état-de-lart--le-verrou-technologique)
+3. [Méthodologie et Justifications Techniques](#3-méthodologie-et-justifications-techniques)
+4. [Résultats Académiques](#4-résultats-académiques)
+5. [Guide de Reproduction (Installation & Tests)](#5-guide-de-reproduction-installation--tests)
+6. [Structure du Projet](#6-structure-du-projet)
 
-## Résultats Académiques Validés
+---
+## État de l’Art
+## Contexte et Problématique
 
-La solution démontre une **supériorité quantifiable** sur la baseline et une **adaptabilité totale** aux exigences du 5G slicing.
+L'architecture 5G repose sur le Network Slicing, une technologie permettant de créer des réseaux virtuels adaptés à des besoins spécifiques : URLLC (Ultra-Reliable Low Latency Communications) pour les applications critiques et eMBB (Enhanced Mobile Broadband) pour le haut débit. Dans ce contexte, les fonctions réseau (CNF) comme l'UPF (User Plane Function) sont conteneurisées et orchestrées par Kubernetes.
 
-| Politique | Distribution (Pods) | Latence P95 | Gain vs Baseline | Preuve Principale |
-|-----------|-------------------|-------------|------------------|-------------------|
-| **Baseline** | 3/4 (Aléatoire) | 32.9 ms | Référence | Statique |
-| **EL-Latency** | 10/0 (Consolidation) | **10.0 ms** | **-69.5% Latence** | Optimisation URLLC |
-| **LB-Balance** | 0/10 (Évitement total) | 50.0 ms | **100% Évitement saturation** | Équilibrage eMBB |
+Le défi majeur réside dans le placement optimal de ces conteneurs sur des clusters Edge hétérogènes. Un mauvais placement entraîne une violation des SLA (Service Level Agreements), notamment une latence trop élevée pour les cas d'usage critiques (véhicules autonomes, industrie 4.0).
 
-### Visualisations Clés
+## Limites de l'Ordonnanceur Natif (Kube-Scheduler)
+Le scheduler par défaut de Kubernetes, a été conçu pour des applications web génériques et non pour les contraintes topologiques strictes des réseaux télécoms. Son fonctionnement se décompose en deux phases séquentielles :
+* Le Filtrage (Predicates) : Élimination des nœuds ne répondant pas aux exigences hard (CPU/RAM insuffisants, ports indisponibles).
+* Le Scoring (Priorities) : Classement des nœuds restants selon des fonctions de score statiques, telles que LeastRequestedPriority (favoriser les nœuds les moins chargés) ou NodeAffinity.
 
-- **Latence P95** : L'efficacité de la politique EL (10.0 ms) prouve la capacité du Scheduler RL à satisfaire les exigences URLLC.
-- **Variance CPU** : La politique LB (Load Balancing) prouve que l'IA peut éviter la saturation du nœud chargé à 70% CPU.
+Bien que robuste, cette approche présente des lacunes structurelles pour la 5G :
 
-## Architecture Technique
+* **Cécité Topologique** : Le scheduler considère le cluster comme un ensemble "plat". Il ne modélise pas nativement la latence réseau inter-nœuds, ce qui peut conduire à placer un UPF critique sur un nœud géographiquement distant de l'utilisateur (UE), augmentant ainsi la latence de bout en bout.
+* **Approche Réactive et "Gloutonne"** : Les décisions sont prises pod par pod, sans vision globale ni anticipation de la charge future. Comme le soulignent Jian et al., cette approche locale peut entraîner une fragmentation des ressources et un déséquilibre de charge (load imbalance) à l'échelle du cluster, nuisant à la performance globale.
 
-Le projet intègre une architecture de control plane avancée, basée sur le concept d'un plugin de scoring.
 
-### Version RL-DQN - Machine Learning
+## Approches par Apprentissage par Renforcement (DRL)
+Pour pallier la rigidité des règles statiques, la littérature récente propose l'utilisation du Deep Reinforcement Learning (DRL). Cette méthode permet à un agent d'apprendre une politique de placement optimale par "essais-erreurs" en interagissant avec l'environnement Kubernetes.
 
-L'agent utilise un modèle **Deep Q-Network (DQN)** pour apprendre la politique optimale.
+#### Optimisation centrée sur la Latence (Algorithme PPO) :
+Wang et al. (2023) adressent spécifiquement la problématique de la latence dans les clusters Edge via l'algorithme PPO-LRT (Proximal Policy Optimization with Least Response Time).
+  - Méthode : Ils modélisent le processus de scheduling comme un Processus de Décision Markovien (MDP) où la fonction de récompense intègre directement le temps de réponse (LRT).
+  - Résultats : Leur approche démontre une réduction de 31% du temps de réponse moyen par rapport au kube-scheduler natif et une meilleure répartition de la charge lors des pics de trafic.
+  - Limitation : Bien que performant, l'algorithme PPO (Policy Gradient) peut s'avérer instable lors de l'entraînement et complexe à converger dans des environnements très dynamiques.
 
-#### Caractéristiques Principales
+#### Optimisation centrée sur les Ressources (Algorithme DQN) :
+Jian et al. (2024) proposent une approche différente avec le système DRS (Deep Reinforcement Learning Scheduler), basé sur l'algorithme DQN (Deep Q-Network).
+  * Méthode : Leur modèle se concentre sur une vision globale des ressources (CPU, Mémoire, Réseau, Disque) pour minimiser la variance de charge entre les nœuds. Ils introduisent un moniteur spécifique pour percevoir l'état global du cluster.
+  * Résultats : DRS améliore l'utilisation des ressources de 27.29% et réduit le déséquilibre de charge d'un facteur 2.90x par rapport à la solution native.
+  * Limitation : Cette approche excelle pour l'efficacité énergétique et la densité (eMBB), mais ne priorise pas explicitement la contrainte de latence critique pour les services URLLC.
 
-1. **Logique de Prise de Décision** : La fonction de scoring utilise une approche multi-critères que l'agent apprend à pondérer.
-2. **Architecture Modulaire** : Le script est un Scheduler Externe Python qui communique avec l'API K8s.
-3. **Robustesse** : L'agent RL est entraîné à fonctionner avec des entrées de taille variable.
 
-## Structure du Projet
+## Conclusion :
+L'analyse de la littérature scientifique et technique met en évidence une limitation critique dans les infrastructures actuelles pour le Network Slicing 5G. D'une part, l'ordonnanceur natif (Kube-Scheduler) se révèle inadapté aux exigences topologiques de la 5G en raison de son approche statique et de sa "cécité" réseau. D'autre part, les solutions basées sur l'IA se divisent en deux camps distincts qui ne communiquent pas. Soit les approches se focalisent exclusivement sur la latence (ex: PPO de Wang et al.), souvent instables à entraîner. Ou bien, les approches focalisées exclusivement sur l'équilibrage de charge (ex: DRS de Jian et al.), qui négligent la proximité critique pour l'URLLC. Ainsi, il n'existe donc pas, à l'heure actuelle, de solution unifiée capable de satisfaire simultanément les contraintes contradictoires de l'URLLC (latence) et de l'eMBB (charge) sur des architectures Edge hétérogènes. C'est ce verrou technologique que notre projet se propose de lever. Nous formulons l'hypothèse qu'une architecture hybride, utilisant la stabilité de l'algorithme DQN (validée par Jian et al.) mais guidée par une fonction de récompense sensible à la latence (inspirée de Wang et al.), permettra d'atteindre ce compromis optimal. De plus, pour garantir la validité de ces résultats face à l'hétérogénéité matérielle identifiée lors de nos tests préliminaires (Mac/PC), cette approche doit impérativement être validée sur une infrastructure conteneurisée agnostique (Docker/k3d).
 
-```
-│   .gitignore                            # Liste les fichiers et dossiers à ignorer par Git (résultats, environnements virtuels, etc.).
-│   academic_results.json                 # Stocke probablement les résultats bruts ou agrégés des benchmarks académiques.
-│   README.md                             # Documentation principale du projet.
-│   rl_scheduler_model.pth                # Fichier binaire du modèle d'ordonnanceur basé sur l'apprentissage par renforcement (RL).
-│   uninstall.sh                          # Script shell pour désinstaller ou nettoyer le déploiement du projet.
-│
-├───configuration
-│       Dockerfile                        # Instructions pour construire l'image Docker contenant l'application.
-│       README.md                         # Documentation spécifique à la configuration et à la construction Docker/environnement.
-│       requirements.txt                  # Liste des dépendances Python nécessaires à l'exécution du code.
-│
-├───kubernetes
-│       ia-scheduler-deploy.yaml          # Manifeste principal de déploiement K8s (déploiement, service, RBAC).
-│       upf-pod-base.yaml                 # Manifeste pour un pod de fonction utilisateur (UPF) de base, utilisé pour des tests.
-│       upf-pod-ia-L.yaml                 # Manifeste pour une variante du pod UPF (type "IA-L"), également pour des tests.
-│
-├───schedulers
-│       ia_scheduler.py                   # L'ancienne version de l'ordonnanceur (statique ou heuristique, non-RL).
-│       ia_scheduler_rl.py                # Le module principal de l'ordonnanceur utilisant l'apprentissage par renforcement.
-│       rl_agent.py                       # Implémentation de l'agent d'apprentissage par renforcement (ex: DQN).
-│       rl_environment.py                 # Définit l'environnement d'interaction pour l'agent RL (états, actions, récompenses).
-│       scoring_logic.py                  # Module séparé pour le calcul des scores ou des métriques.
-│       train_rl_scheduler.py             # Script pour lancer l'entraînement et l'optimisation de l'agent RL.
-│       __init__.py                       # Fichier indiquant que ce répertoire doit être traité comme un paquet Python.
-│
-└───TESTS
-    │   benchmark_schedulers.py           # Script Python pour comparer les performances de différents ordonnanceurs (ancien vs RL).
-    │   generate_academic_plots.py        # Script pour traiter les données de test et générer les graphiques pour la documentation.
-    │   stress-base-load.yaml             # Fichier de configuration K8s ou de charge pour simuler une charge de base intense.
-    │   test_academic_scenarios.sh        # Script shell automatisant l'exécution de scénarios de test académiques spécifiques.
-    │   test_simple_logs.sh               # Script shell pour des tests rapides ou la vérification basique des logs.
-    │
-    └───RESULTS                           # Dossier de sortie pour les artefacts générés par les scripts de test.
-            cpu_variance.png              # Graphique affichant la variance d'utilisation du CPU.
-            latency_p95.png               # Graphique montrant le 95e percentile de la latence mesurée.
-            multi_metrics_comparison.png  # Graphique de comparaison regroupant plusieurs métriques (CPU, latence, etc.).
-            pod_distribution.png          # Graphique représentant la distribution des pods sur les nœuds du cluster.
-```
+---
 
-## Pré-requis
+## 3. Méthodologie et Justifications Techniques
 
-Avant de lancer le projet, assurez-vous que votre environnement dispose des outils suivants :
+Pour répondre à cet objectif, nous avons développé une architecture logicielle spécifique, justifiée par les contraintes observées.
 
-| Outil | Version Recommandée | Usage |
-|-------|---------------------|-------|
-| **Docker** | 20.10+ | Moteur de conteneurisation pour le cluster. |
-| **K3d** | 5.0+ | Création du cluster Kubernetes léger en local. |
-| **Kubectl** | 1.25+ | CLI pour interagir avec le cluster. |
-| **Python** | 3.12+ | Exécution de l'Agent RL et des scripts de génération. |
-| **jq** | 1.6+ | Parsing JSON (nécessaire pour les scripts de test). |
+#### 3.1. Infrastructure de Simulation : Le Choix de la Conteneurisation (k3d)
+Lors de nos travaux préliminaires, nous avons rencontré des incompatibilités majeures liées à l'hétérogénéité matérielle (Mac/PC).
+* **Solution :** Migration vers une architecture conteneurisée avec **Docker** et **k3d**.
+* **Justification :** Ce choix garantit la reproductibilité scientifique des résultats et permet de simuler fidèlement un cluster Edge hétérogène (nœuds labellisés "low-latency" vs "standard") sur une seule machine physique.
 
-### Installation rapide (macOS / Linux)
+#### 3.2 Algorithme de Décision : Deep Q-Network (DQN)
+Nous avons implémenté un agent RL-DQN plutôt qu'une heuristique figée.
+* Justification : Le DQN permet d'apprendre une politique de placement dynamique. L'agent reçoit un état simplifié du cluster et apprend à identifier le nœud optimal via un réseau de neurones à 3 couches (Input 7 -> 64 -> 32 -> Output 1).
+
+#### 3.3 Stratégie Hybride : Filtrage Préventif + Récompense Binaire
+Contrairement aux approches purement mathématiques qui peinent à converger, nous avons implémenté une stratégie pragmatique en deux temps :
+
+* Garde-fou (Hard Constraint) : Avant même d'interroger l'IA, le scheduler applique un filtre de sécurité. Si un nœud dépasse 80% de charge CPU, il est exclu des candidats. Cela garantit la stabilité du cluster (eMBB) sans "polluer" l'apprentissage de l'agent.
+
+* Récompense "Incitative" (Soft Constraint) : Pour forcer l'agent à prioriser la latence (URLLC), nous avons défini une fonction de récompense binaire et déterministe dans rl_environment.py
+
+$$
+R = \begin{cases} 
+100.0 & \text{si nœud Low-Latency (Agent-0)} \\
+10.0 & \text{si nœud Standard (Agent-1)}
+\end{cases}
+$$
+
+Cette différence massive de reward (x10) permet à l'agent de converger très rapidement vers la solution optimale (le nœud Edge) tout en laissant le filtre de sécurité gérer les cas de saturation.
+
+---
+
+## 4. Résultats Académiques
+
+Les benchmarks ont été réalisés sur un cluster de 2 nœuds (1 Edge Low-Latency, 1 Standard) avec 10 réplicas de pods UPF.
+
+#### Performance de Latence (Cas URLLC)
+
+| Solution | Latence P95 | Gain | Observation |
+| :--- | :--- | :--- | :--- |
+| **Baseline (Kube-Scheduler)** | 32.9 ms | - | Placement aléatoire (30% sur nœud rapide). |
+| **Notre Agent RL** | **10.0 ms** | **-69.5%** | Consolidation intelligente sur le nœud Edge. |
+
+#### Visualisation des Données
+
+| **Gain de Latence (URLLC)** | **Évitement de Saturation (LB)** |
+|:---------------------------:|:-------------------------:|
+| ![Latence](TESTS/RESULTS/latency_p95.png) | ![Variance](TESTS/RESULTS/cpu_variance.png) |
+| *L'agent RL (vert) réduit drastiquement la latence P95.* | *L'agent (bleu) répartit la charge quand la latence n'est pas prioritaire.* |
+
+---
+
+## 5. Guide de Reproduction (Installation & Tests)
+
+#### Pré-requis
+* Linux, macOS ou Windows (WSL2).
+* Droits `sudo` (pour Docker).
+
+#### Installation Automatique (via un script)
+
+
+<details>
+<summary><strong> Option A : utilisation d'un script </strong></summary>
+
+Copiez-collez simplement ce bloc dans votre terminal pour tout installer et lancer :
 
 ```bash
-# MacOS (via Homebrew)
+# 1. Créer le script d'installation
+cat << 'EOF' > install_project.sh
+#!/bin/bash
+set -e
+echo -e "\n🔵 --- INSTALLATION AUTOMATISÉE DU SCHEDULER IA ---"
+
+# Installation des dépendances (Linux/Debian/Ubuntu)
+if [ -f /etc/debian_version ]; then
+    echo "🔧 Installation des pré-requis système..."
+    sudo apt-get update -q
+    sudo apt-get install -y curl git docker.io python3 python3-pip python3-venv jq
+    if ! sudo service docker status > /dev/null 2>&1; then sudo service docker start; fi
+    sudo chmod 666 /var/run/docker.sock
+fi
+
+# Installation K3D et Kubectl
+if ! command -v k3d &> /dev/null; then
+    curl -s [https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh](https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh) | bash
+fi
+if ! command -v kubectl &> /dev/null; then
+    curl -LO "[https://dl.k8s.io/release/$(curl](https://dl.k8s.io/release/$(curl) -L -s [https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl](https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl)"
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+fi
+
+# Mise en place du projet
+cd ~
+if [ -d "kubernetes-ia-scheduler" ]; then rm -rf kubernetes-ia-scheduler; fi
+git clone [https://github.com/sohooow/kubernetes-ia-scheduler.git](https://github.com/sohooow/kubernetes-ia-scheduler.git)
+cd kubernetes-ia-scheduler
+
+# Environnement Python
+echo "🐍 Configuration Python..."
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r configuration/requirements.txt
+
+# Cluster Kubernetes
+echo "🏗️  Création du cluster 'nexslice'..."
+k3d cluster delete nexslice 2>/dev/null || true
+k3d cluster create nexslice --agents 2 --wait
+# Labelisation pour la topologie
+kubectl label node k3d-nexslice-agent-0 type=low-latency --overwrite
+kubectl label node k3d-nexslice-agent-1 type=standard --overwrite
+
+# Déploiement
+echo "🚀 Déploiement du Scheduler..."
+kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
+
+echo -e "\n✅ INSTALLATION TERMINÉE."
+echo "👉 Lancement des tests académiques..."
+chmod +x TESTS/test_academic_scenarios.sh
+./TESTS/test_academic_scenarios.sh
+
+echo -e "\n📊 Génération des graphiques..."
+python3 TESTS/generate_academic_plots.py
+echo "Les résultats sont disponibles dans le dossier TESTS/RESULTS/"
+EOF
+
+# 2. Rendre exécutable et lancer
+chmod +x install_project.sh
+./install_project.sh
+```
+</details>
+
+<details>
+<summary><strong> Option B : Installation Manuelle (Pas à pas)  </strong></summary>
+  
+#### Installation rapide (macOS / Linux)
+
+#### MacOS (via Homebrew)
+```bash
 brew install k3d kubectl python jq
-
-
-# Linux (Ubuntu/Debian)
+```
+#### Linux (Ubuntu/Debian)
+```bash
+# Installer curl et docker
 sudo apt update && sudo apt install -y curl git
-
 sudo apt-get update && sudo apt-get install -y docker.io python3 python3-pip jq
-# 1. Installer k3d
+
+# Installer k3d
 curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
-# 2. Installer kubectl
+# Installer kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
-# 3. Valider l'installation de kubectl
+# Valider l'installation de kubectl
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 ```
 
-## Démarrage Rapide
+#### Démarrage Rapide
 
-### 1\. Installation et Déploiement
+#### 1\. Installation et Déploiement
 
 ```bash
 # Cloner le repository
@@ -147,13 +242,14 @@ kubectl label node k3d-nexslice-agent-1 type=standard
 kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
 ```
 
-### 2\. Exécution des Tests Académiques
+#### 2\. Exécution des Tests Académiques
 
 ```bash
 # Lancer la suite de tests complète (Baseline, EL, LB)
 # Ceci exécute les 3 scénarios et produit le rapport d'analyse.
 ./TESTS/test_academic_scenarios.sh
 ```
+</details>
 
 **Sortie attendue** :
 
@@ -249,7 +345,8 @@ deployment.apps "stress-load" deleted from default namespace
 
 </details>
  
-### Une fois les tests réalisés avec succès, lancez la commande suivante pour créer des résultats visuels sous forme de graphiques :
+### Résultats
+Une fois les tests réalisés avec succès, lancez la commande suivante pour créer des résultats visuels sous forme de graphiques :
 
 ```bash
 python3 ./TESTS/generate_academic_plots.py
@@ -257,185 +354,21 @@ python3 ./TESTS/generate_academic_plots.py
 
 Les graphiques sont sauvegardés dans ```/TESTS/RESULTS```
 
-### Visualisations Clés
+---
 
-| Latence P95 (EL Policy) | Variance CPU (LB Policy) |
-|:-----------------------:|:------------------------:|
-| ![Latence](TESTS/RESULTS/latency_p95.png) | ![Variance](TESTS/RESULTS/cpu_variance.png) |
-
-> *Figure 1 : Comparaison des performances prouvant la supériorité des politiques RL sur la baseline.*
-
-## Configuration Avancée
-
-### Hyperparamètres RL
-
-Configurables dans `schedulers/rl_agent.py` :
-
-```python
-agent = RLSchedulerAgent(
-    state_size=7,           # État 7D enrichi
-    action_size=2,          # Nombre de nœuds workers
-    learning_rate=0.001,    # Taux apprentissage
-    gamma=0.95,             # Discount factor
-    epsilon=1.0,            # Exploration initiale
-    epsilon_min=0.01,       # Exploration finale
-    epsilon_decay=0.995     # Décroissance exploration
-)
+## 6. Structure du Projet
 ```
-
-### Fonction de Récompense
-
-Configurée dans `schedulers/rl_environment.py` :
-
-```python
-class KubernetesSchedulingEnv:
-    LATENCY_WEIGHT = 10.0      # Priorité latence (URLLC)
-    CPU_WEIGHT = 8.0           # Équilibrage CPU
-    MEMORY_WEIGHT = 3.0        # Équilibrage mémoire
-    OVERLOAD_PENALTY = 50.0    # Pénalité saturation
-    CPU_THRESHOLD = 0.6        # 60% CPU limite
+├── configuration/            # Dépendances et Dockerfile
+├── kubernetes/               # Manifestes YAML (Deployment, RBAC, Pods de test)
+├── schedulers/               # Code source Python de l'IA
+│   ├── ia_scheduler_rl.py    # Point d'entrée du Scheduler
+│   ├── rl_agent.py           # Réseau de neurones (DQN)
+│   ├── rl_environment.py     # Environnement et Fonction de Récompense
+│   └── scoring_logic.py      # Logique de scoring
+├── TESTS/                    # Scripts de validation scientifique
+│   ├── test_academic_scenarios.sh   # Script principal de test
+│   ├── generate_academic_plots.py   # Génération des graphiques
+│   └── RESULTS/              # Graphiques générés
+├── rl_scheduler_model.pth    # Modèle IA pré-entraîné
+└── README.md                 # Ce fichier
 ```
-
-## Tests et Validation
-
-### Test 1: Politique EL-Latency (URLLC)
-
-**Objectif** : Minimiser latence pour services 5G critiques
-
-```bash
-kubectl apply -f kubernetes/upf-pod-ia-L.yaml
-# Résultat attendu: 10/0 pods (consolidation sur agent-0)
-kubectl get pods -l app=upf-ia-l -o wide
-```
-
-**Résultat validé** : 10.00ms latence P95 (-69.55% vs baseline)
-
-### Test 2: Politique LB-Balance (Load Balancing)
-
-**Objectif** : Éviter saturation CPU avec charge stress
-
-```bash
-# Créer charge 70% CPU sur agent-0, puis déployer avec LB policy
-kubectl apply -f TESTS/stress-base-load.yaml
-# Déployer des pods supplémentaires pour vérifier l'évitement
-```
-
-**Résultat validé** : 0% pods sur nœud saturé (évitement total)
-
-## Métriques et Monitoring
-
-### Métriques Académiques
-
-  - **Latence P95** : `(N_agent0 × 10ms + N_agent1 × 50ms) / N_total`
-  - **Variance CPU** : `(N_agent0 - N_agent1)² / 2`
-  - **Efficacité Placement** : EL (-69.55% latence), LB (100% évitement saturation)
-
-### Logs Détaillés
-
-```bash
-# Logs temps réel du scheduler
-kubectl logs -f deployment/ia-scheduler-deployment
-
-# Exemples de sortie:
-# ✓ Modèle DQN chargé
-# Mode: Inference, Epsilon: 0.010
-# Nouveau pod détecté: default/upf-abc123
-# k3d-nexslice-agent-0: CPU=15.2% DISPONIBLE
-# k3d-nexslice-agent-1: CPU=75.8% SATURÉ
-# Nœud sélectionné par RL: k3d-nexslice-agent-0
-# SUCCESS: default/upf-abc123 → k3d-nexslice-agent-0
-```
-
-## Références Scientifiques
-
-### Articles de Recherche
-
-1.  **Wang, K., Zhao, K., & Qin, B. (2023)** "Optimization of Task-Scheduling Strategy in Edge Kubernetes Clusters Based on Deep Reinforcement Learning"  
-    *Mathematics*, 11(20), 4269.  
-    https://doi.org/10.3390/math11204269
-
-2.  **Jian, Z., Xie, X., Fang, Y., et al. (2024)** "DRS: A deep reinforcement learning enhanced Kubernetes scheduler for microservice-based system"  
-    *Software: Practice and Experience*, 54(10), 2102–2126.  
-    https://doi.org/10.1002/spe.3284
-
-## Liens
-
-  - **GitHub** : https://github.com/sohooow/kubernetes-ia-scheduler
-  - **Docker Hub** : https://hub.docker.com/r/soohow/ia-scheduler
-
-
-
-# Scheduler Intelligent avec IA pour le Network Slicing 5G
-
-**Auteurs :** Colson Eliott, ABDERRAHMANE Sonia, Garnaud Théo
-
-## 1. Problématique et Contexte
-
-L'architecture 5G repose sur le **Network Slicing**, une technologie permettant de créer des réseaux virtuels adaptés à des besoins spécifiques :
-* **URLLC (Ultra-Reliable Low Latency Communications) :** Pour les applications critiques (véhicules autonomes, industrie 4.0).
-* **eMBB (Enhanced Mobile Broadband) :** Pour le haut débit.
-
-Dans ce contexte, les fonctions réseau (CNF) comme l'UPF (User Plane Function) sont conteneurisées et orchestrées par Kubernetes. Le défi majeur réside dans le placement optimal de ces conteneurs sur des clusters Edge hétérogènes. Un mauvais placement entraîne une violation des SLA (Service Level Agreements), notamment une latence trop élevée pour les cas d'usage critiques.
-
-## 2. Analyse de la Solution Standard : Kube-Scheduler
-
-Le scheduler par défaut de Kubernetes a été conçu pour des applications web génériques et non pour les contraintes topologiques strictes des réseaux télécoms. Son fonctionnement se décompose en deux phases séquentielles :
-
-1.  **Le Filtrage (Predicates) :** Élimination des nœuds ne répondant pas aux exigences "hard" (CPU/RAM insuffisants, ports indisponibles).
-2.  **Le Scoring (Priorities) :** Classement des nœuds restants selon des fonctions de score statiques, telles que *LeastRequested Priority* (favoriser les nœuds les moins chargés) ou *NodeAffinity*.
-
-### Lacunes structurelles pour la 5G :
-* **Cécité Topologique :** Le scheduler considère le cluster comme un ensemble "plat" et ne modélise pas nativement la latence réseau inter-nœuds, risquant de placer un UPF critique loin de l'utilisateur (UE).
-* **Approche Réactive et "Gloutonne" :** Les décisions sont prises pod par pod sans vision globale ni anticipation de la charge future, ce qui peut entraîner une fragmentation des ressources et un déséquilibre de charge (*load imbalance*).
-
-## 3. État de l'Art : Approches par Apprentissage par Renforcement Profond (DRL)
-
-Pour pallier la rigidité des règles statiques, la littérature propose l'utilisation du Deep Reinforcement Learning (DRL) pour apprendre une politique de placement optimale par "essais-erreurs".
-
-Il existe actuellement une dichotomie dans les solutions existantes :
-
-| Approche | Algorithme | Description | Résultats | Limitations |
-| :--- | :--- | :--- | :--- | :--- |
-| **Centrée Latence** | PPO-LRT (Proximal Policy Optimization) | Modélise le scheduling comme un MDP où la récompense intègre le temps de réponse. | Réduction de 31% du temps de réponse moyen par rapport au natif. | Instabilité de l'algorithme PPO lors de l'entraînement dans des environnements dynamiques. |
-| **Centrée Ressources** | DRS (Deep Q-Network) | Vision globale des ressources pour minimiser la variance de charge entre les nœuds. | Améliore l'utilisation des ressources de 27.29% et réduit le déséquilibre de charge de 2.90x. | Ne priorise pas explicitement la contrainte de latence critique pour l'URLLC. |
-
-**Conclusion de l'état de l'art :** Il n'existe pas de solution unifiée satisfaisant simultanément les contraintes de l'URLLC (latence) et de l'eMBB (charge).
-
-## 4. Notre Projet : Une Architecture Hybride
-
-Nous proposons de lever ce verrou technologique via une architecture hybride : utiliser la stabilité de l'algorithme **DQN** (validée par Jian et al.) guidée par une fonction de récompense sensible à la **latence** (inspirée de Wang et al.). Cette approche vise à réconcilier les objectifs contradictoires via une stratégie multi-objectifs.
-
-### Infrastructure de Simulation (k3d/Docker)
-Pour garantir la validité des résultats face à l'hétérogénéité matérielle identifiée lors des tests préliminaires (Mac/PC), nous avons migré vers une architecture conteneurisée agnostique (**k3d/Docker**).
-* Cela permet de simuler un cluster Edge hétérogène reproductible.
-* Certains nœuds sont labellisés "low-latency" (proximité UE) et d'autres "standard" pour entraîner l'IA à distinguer les topologies.
-
-### Algorithme de Décision : Deep Q-Network (DQN)
-Nous avons implémenté un agent RL-DQN.
-* Contrairement à une heuristique figée, le DQN apprend de ses erreurs grâce à un mécanisme de "Replay Buffer" qui stabilise l'apprentissage.
-* L'agent apprend qu'un nœud surchargé, même proche, devient un mauvais candidat pour la latence.
-
-### Fonction de Récompense ($R$)
-Le cœur de la méthodologie réside dans la fonction de récompense qui guide l'apprentissage avec une pondération asymétrique pour forcer l'optimisation de la latence avant celle de la charge.
-
-$$R = -(W_{lat} \cdot \text{Latence}) - (W_{cpu} \cdot \text{Charge}) - \text{Pénalités}$$
-
-* **Focus Latence :** Nous avons fixé le poids $W_{lat} = 10.0$ contre $W_{cpu} = 8.0$. Cette pondération force l'agent à privilégier les nœuds "low-latency" tant qu'ils ne sont pas critiques.
-* **Pénalité de Surcharge :** Une pénalité drastique (`OVERLOAD_PENALTY` = 50.0) est appliquée si un nœud dépasse 60% de charge, agissant comme garde-fou contre la congestion.
-
-## 5. Résultats
-
-Les gains observés expérimentalement valident notre hypothèse.
-
-| Solution | Latence P95 | Observations |
-| :--- | :--- | :--- |
-| **Baseline (Kube-Scheduler)** | 30 ms | Placement aléatoire. |
-| **Notre Agent RL** | **10 ms** | Placement optimisé. |
-
-### Visualisation des Performances
-
-| Latence (Efficacité EL) | Distribution des Pods |
-|:-----------------------:|:---------------------:|
-| ![Latence](TESTS/RESULTS/latency_p95.png) | ![Distribution](TESTS/RESULTS/pod_distribution.png) |
-
-**Conclusion :** Une réduction de **66%** de la latence est observée, validant la capacité de l'agent à identifier et privilégier les nœuds offrant la meilleure latence réseau, surpassant ainsi la politique par défaut de Kubernetes.
