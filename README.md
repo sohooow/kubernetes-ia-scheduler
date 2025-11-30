@@ -107,9 +107,9 @@ Les benchmarks ont été réalisés sur un cluster de 2 nœuds (1 Edge Low-Laten
 #### Visualisation des Données
 
 | **Gain de Latence (URLLC)** | **Évitement de Saturation (LB)** |
-|:---------------------------:|:-------------------------:|
-| ![Latence](TESTS/RESULTS/latency_p95.png) | ![Variance](TESTS/RESULTS/cpu_variance.png) |
-| *L'agent RL (vert) réduit drastiquement la latence P95.* | *L'agent (bleu) répartit la charge quand la latence n'est pas prioritaire.* |
+|:---------------------------:|
+| ![Latence](TESTS/RESULTS/latency_p95.png) |
+| *L'agent RL (vert) réduit drastiquement la latence P95.* |
 
 ---
 
