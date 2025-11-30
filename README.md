@@ -119,11 +119,11 @@ L'agent RL (vert) réduit drastiquement la latence P95.
 * Linux, macOS ou Windows (WSL2).
 * Droits `sudo` (pour Docker).
 
-#### Installation Automatique (via un script)
+#### Installation
 
 
 <details>
-<summary><strong> Option A : utilisation d'un script </strong></summary>
+<summary><strong> Option A : Installation Automatique (via un script) </strong></summary>
 
 Copiez-collez simplement ce bloc dans votre terminal pour tout installer et lancer :
 
