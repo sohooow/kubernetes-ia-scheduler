@@ -15,15 +15,14 @@
 ---
 
 ## Table des Matières
-1. [Contexte et Problématique](#1-contexte-et-problématique)
-2. [État de l’Art](#2-état-de-lart--le-verrou-technologique)
-3. [Méthodologie et Justifications Techniques](#3-méthodologie-et-justifications-techniques)
-4. [Résultats Académiques](#4-résultats-académiques)
-5. [Guide de Reproduction (Installation & Tests)](#5-guide-de-reproduction-installation--tests)
-6. [Structure du Projet](#6-structure-du-projet)
+1. [État de l’Art](#2-état-de-lart--le-verrou-technologique)
+2. [Méthodologie et Justifications Techniques](#3-méthodologie-et-justifications-techniques)
+3. [Résultats Académiques](#4-résultats-académiques)
+4. [Guide de Reproduction (Installation & Tests)](#5-guide-de-reproduction-installation--tests)
+5. [Structure du Projet](#6-structure-du-projet)
 
 ---
-## État de l’Art
+## 1. État de l’Art
 ## Contexte et Problématique
 
 L'architecture 5G repose sur le Network Slicing, une technologie permettant de créer des réseaux virtuels adaptés à des besoins spécifiques : URLLC (Ultra-Reliable Low Latency Communications) pour les applications critiques et eMBB (Enhanced Mobile Broadband) pour le haut débit. Dans ce contexte, les fonctions réseau (CNF) comme l'UPF (User Plane Function) sont conteneurisées et orchestrées par Kubernetes.
@@ -62,20 +61,20 @@ L'analyse de la littérature scientifique et technique met en évidence une limi
 
 ---
 
-## 3. Méthodologie et Justifications Techniques
+## 2. Méthodologie et Justifications Techniques
 
 Pour répondre à cet objectif, nous avons développé une architecture logicielle spécifique, justifiée par les contraintes observées.
 
-#### 3.1. Infrastructure de Simulation : Le Choix de la Conteneurisation (k3d)
+#### 2.1. Infrastructure de Simulation : Le Choix de la Conteneurisation (k3d)
 Lors de nos travaux préliminaires, nous avons rencontré des incompatibilités majeures liées à l'hétérogénéité matérielle (Mac/PC).
 * **Solution :** Migration vers une architecture conteneurisée avec **Docker** et **k3d**.
 * **Justification :** Ce choix garantit la reproductibilité scientifique des résultats et permet de simuler fidèlement un cluster Edge hétérogène (nœuds labellisés "low-latency" vs "standard") sur une seule machine physique.
 
-#### 3.2 Algorithme de Décision : Deep Q-Network (DQN)
+#### 2.2 Algorithme de Décision : Deep Q-Network (DQN)
 Nous avons implémenté un agent RL-DQN plutôt qu'une heuristique figée.
 * Justification : Le DQN permet d'apprendre une politique de placement dynamique. L'agent reçoit un état simplifié du cluster et apprend à identifier le nœud optimal via un réseau de neurones à 3 couches (Input 7 -> 64 -> 32 -> Output 1).
 
-#### 3.3 Stratégie Hybride : Filtrage Préventif + Récompense Binaire
+#### 2.3 Stratégie Hybride : Filtrage Préventif + Récompense Binaire
 Contrairement aux approches purement mathématiques qui peinent à converger, nous avons implémenté une stratégie pragmatique en deux temps :
 
 * Garde-fou (Hard Constraint) : Avant même d'interroger l'IA, le scheduler applique un filtre de sécurité. Si un nœud dépasse 80% de charge CPU, il est exclu des candidats. Cela garantit la stabilité du cluster (eMBB) sans "polluer" l'apprentissage de l'agent.
@@ -93,7 +92,7 @@ Cette différence massive de reward (x10) permet à l'agent de converger très r
 
 ---
 
-## 4. Résultats Académiques
+## 3. Résultats Académiques
 
 Les benchmarks ont été réalisés sur un cluster de 2 nœuds (1 Edge Low-Latency, 1 Standard) avec 10 réplicas de pods UPF.
 
@@ -114,7 +113,7 @@ L'agent RL (vert) réduit drastiquement la latence P95.
 
 ---
 
-## 5. Guide de Reproduction (Installation & Tests)
+## 4. Guide de Reproduction (Installation & Tests)
 
 #### Pré-requis
 * Linux, macOS ou Windows (WSL2).
@@ -357,7 +356,7 @@ Les graphiques sont sauvegardés dans ```/TESTS/RESULTS```
 
 ---
 
-## 6. Structure du Projet
+## 5. Structure du Projet
 ```
 ├── configuration/            # Dépendances et Dockerfile
 ├── kubernetes/               # Manifestes YAML (Deployment, RBAC, Pods de test)
