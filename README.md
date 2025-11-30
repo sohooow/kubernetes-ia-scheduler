@@ -192,8 +192,7 @@ chmod +x install_project.sh
 ```
 </details>
 
-<details>
-<summary><strong> Option B : Installation Manuelle (Pas à pas)  </strong></summary>
+#### Option B : Installation Manuelle (Pas à pas)
   
 #### Installation rapide (macOS / Linux)
 
@@ -249,7 +248,6 @@ kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
 # Ceci exécute les 3 scénarios et produit le rapport d'analyse.
 ./TESTS/test_academic_scenarios.sh
 ```
-</details>
 
 **Sortie attendue** :
 
