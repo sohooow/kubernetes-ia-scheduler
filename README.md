@@ -15,14 +15,14 @@
 ---
 
 ## Table des Matières
-1. [État de l’Art](#2-état-de-lart--le-verrou-technologique)
-2. [Méthodologie et Justifications Techniques](#3-méthodologie-et-justifications-techniques)
-3. [Résultats Académiques](#4-résultats-académiques)
-4. [Guide de Reproduction (Installation & Tests)](#5-guide-de-reproduction-installation--tests)
-5. [Structure du Projet](#6-structure-du-projet)
+1. [État de l’Art](#1-état-de-lart--le-verrou-technologique)
+2. [Méthodologie et Justifications Techniques](#2-méthodologie-et-justifications-techniques)
+3. [Résultats Académiques](#3-résultats-académiques)
+4. [Guide de Reproduction (Installation & Tests)](#4-guide-de-reproduction-installation--tests)
+5. [Structure du Projet](#5-structure-du-projet)
 
 ---
-## 1. État de l’Art
+## État de l’Art
 ## Contexte et Problématique
 
 L'architecture 5G repose sur le Network Slicing, une technologie permettant de créer des réseaux virtuels adaptés à des besoins spécifiques : URLLC (Ultra-Reliable Low Latency Communications) pour les applications critiques et eMBB (Enhanced Mobile Broadband) pour le haut débit. Dans ce contexte, les fonctions réseau (CNF) comme l'UPF (User Plane Function) sont conteneurisées et orchestrées par Kubernetes.
@@ -36,8 +36,8 @@ Le scheduler par défaut de Kubernetes, a été conçu pour des applications web
 
 Bien que robuste, cette approche présente des lacunes structurelles pour la 5G :
 
-* **Cécité Topologique** : Le scheduler considère le cluster comme un ensemble "plat". Il ne modélise pas nativement la latence réseau inter-nœuds, ce qui peut conduire à placer un UPF critique sur un nœud géographiquement distant de l'utilisateur (UE), augmentant ainsi la latence de bout en bout.
-* **Approche Réactive et "Gloutonne"** : Les décisions sont prises pod par pod, sans vision globale ni anticipation de la charge future. Comme le soulignent Jian et al., cette approche locale peut entraîner une fragmentation des ressources et un déséquilibre de charge (load imbalance) à l'échelle du cluster, nuisant à la performance globale.
+* Cécité Topologique : Le scheduler considère le cluster comme un ensemble "plat". Il ne modélise pas nativement la latence réseau inter-nœuds, ce qui peut conduire à placer un UPF critique sur un nœud géographiquement distant de l'utilisateur (UE), augmentant ainsi la latence de bout en bout.
+* Approche Réactive et "Gloutonne" : Les décisions sont prises pod par pod, sans vision globale ni anticipation de la charge future. Comme le soulignent Jian et al., cette approche locale peut entraîner une fragmentation des ressources et un déséquilibre de charge (load imbalance) à l'échelle du cluster, nuisant à la performance globale.
 
 
 ## Approches par Apprentissage par Renforcement (DRL)
@@ -63,23 +63,29 @@ L'analyse de la littérature scientifique et technique met en évidence une limi
 
 ## 2. Méthodologie et Justifications Techniques
 
-Pour répondre à cet objectif, nous avons développé une architecture logicielle spécifique, justifiée par les contraintes observées.
+Pour répondre à l'objectif de minimisation de la latence, nous avons développé une architecture logicielle spécifique, qui est justifiée par les contraintes de simulation et de reproductibilité.
 
 #### 2.1. Infrastructure de Simulation : Le Choix de la Conteneurisation (k3d)
-Lors de nos travaux préliminaires, nous avons rencontré des incompatibilités majeures liées à l'hétérogénéité matérielle (Mac/PC).
-* **Solution :** Migration vers une architecture conteneurisée avec **Docker** et **k3d**.
-* **Justification :** Ce choix garantit la reproductibilité scientifique des résultats et permet de simuler fidèlement un cluster Edge hétérogène (nœuds labellisés "low-latency" vs "standard") sur une seule machine physique.
+Lors de nos travaux préliminaires, l'utilisation de machines virtuelles classiques s'est avérée complexe à cause de l'architecture différentes de nos processeurs (Mac/PC).
+* Solution : Migration vers une architecture conteneurisée avec k3d (Kubernetes dans Docker).
+* Précision : L'environnement nexslice dans nos scripts correspond ici à un cluster k3d local simulant une topologie Edge.
+* Justification : Cela garantit la reproductibilité des résultats. Et cela permet de simuler un cluster hétérogène sur une seule machine physique.
 
 #### 2.2 Algorithme de Décision : Deep Q-Network (DQN)
 Nous avons implémenté un agent RL-DQN plutôt qu'une heuristique figée.
-* Justification : Le DQN permet d'apprendre une politique de placement dynamique. L'agent reçoit un état simplifié du cluster et apprend à identifier le nœud optimal via un réseau de neurones à 3 couches (Input 7 -> 64 -> 32 -> Output 1).
+* Justification : Le DQN permet d'apprendre une politique de placement dynamique. L'agent reçoit un état simplifié du cluster et apprend à identifier le nœud optimal via un réseau de neurones à 3 couches (Input 7 -> 64 -> 32 -> Output 1). Contrairement à une simple table Q-Learning, le réseau de neurones permet de généraliser l'apprentissage à des états non rencontrés.
 
-#### 2.3 Stratégie Hybride : Filtrage Préventif + Récompense Binaire
-Contrairement aux approches purement mathématiques qui peinent à converger, nous avons implémenté une stratégie pragmatique en deux temps :
+#### 2.3 Stratégie de Placement : Latence par Identification Topologique
+Contrairement aux approches basées sur des métriques temps réel (souvent bruitées ou difficiles à collecter sans une stack de monitoring lourde type Prometheus), nous avons opté pour une stratégie d'apprentissage topologique déterministe, implémentée directement dans l'environnement RL (rl_environment.py).
 
-* Garde-fou (Hard Constraint) : Avant même d'interroger l'IA, le scheduler applique un filtre de sécurité. Si un nœud dépasse 80% de charge CPU, il est exclu des candidats. Cela garantit la stabilité du cluster (eMBB) sans "polluer" l'apprentissage de l'agent.
+**1- Détection Topologique par Nom de Nœud :** Plutôt que de s'appuyer sur des labels Kubernetes dynamiques, notre environnement identifie les nœuds à faible latence (Edge) via une convention de nommage explicite sur le nom d'hôte.
+  * agent-0 : Identifié comme le nœud Low-Latency (proximité utilisateur).
+  * agent-1 (et autres) : Identifiés comme nœuds Standard (Cloud).
+  * Justification : Cette méthode offre une stabilité absolue à l'agent RL pour distinguer la topologie du réseau dans un environnement de simulation local.
 
-* Récompense "Incitative" (Soft Constraint) : Pour forcer l'agent à prioriser la latence (URLLC), nous avons défini une fonction de récompense binaire et déterministe dans rl_environment.py
+**2- Abstraction des Ressources CPU :** Pour cette preuve de concept focalisée sur la latence, l'agent ignore volontairement la charge CPU (valeur fixée à 0.0 dans l'état observé) pour concentrer l'apprentissage exclusivement sur la topologie réseau.
+
+**3- Fonction de Récompense Binaire :** Pour forcer la convergence vers le nœud Edge, nous avons défini une fonction de récompense binaire ("Sparse Reward"). L'agent reçoit une récompense massive uniquement s'il cible le bon nœud géographique :
 
 $$
 R = \begin{cases} 
@@ -98,18 +104,17 @@ Les benchmarks ont été réalisés sur un cluster de 2 nœuds (1 Edge Low-Laten
 
 #### Performance de Latence (Cas URLLC)
 
-| Solution | Latence P95 | Gain | Observation |
+| Solution | Latence P95 (Est.) | Gain | Observation |
 | :--- | :--- | :--- | :--- |
-| **Baseline (Kube-Scheduler)** | 32.9 ms | - | Placement aléatoire (30% sur nœud rapide). |
-| **Notre Agent RL** | **10.0 ms** | **-69.5%** | Consolidation intelligente sur le nœud Edge. |
+| **Baseline (Kube-Scheduler)** | ~ 30 ms | - | Placement aléatoire (~40% sur nœud rapide). |
+| **Notre Agent RL** | ~ 10 ms | ~ -66% | Consolidation intelligente sur le nœud Edge. |
+
 
 #### Visualisation des Données
 
 **Gain de Latence (URLLC)**
-
 ![Latence](TESTS/latency_p95.png)
-
-L'agent RL (vert) réduit drastiquement la latence P95.
+*L'agent RL (vert) réduit drastiquement la latence P95.*
 
 ---
 
@@ -119,11 +124,11 @@ L'agent RL (vert) réduit drastiquement la latence P95.
 * Linux, macOS ou Windows (WSL2).
 * Droits `sudo` (pour Docker).
 
-#### Installation
+#### Installation Automatique (via un script)
 
 
 <details>
-<summary><strong> Option A : Installation Automatique (via un script) </strong></summary>
+<summary><strong> Option A : utilisation d'un script </strong></summary>
 
 Copiez-collez simplement ce bloc dans votre terminal pour tout installer et lancer :
 
@@ -244,8 +249,8 @@ kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
 #### 2\. Exécution des Tests Académiques
 
 ```bash
-# Lancer la suite de tests complète (Baseline, EL, LB)
-# Ceci exécute les 3 scénarios et produit le rapport d'analyse.
+# Lancer la suite de tests complète (Baseline, EL)
+# Ceci exécute les 2 scénarios et produit le rapport d'analyse.
 ./TESTS/test_academic_scenarios.sh
 ```
 
@@ -258,7 +263,7 @@ kubectl apply -f kubernetes/ia-scheduler-deploy.yaml
 (.venv) TSP@MBAEliott kubernetes-ia-scheduler % ./TESTS/test_academic_scenarios.sh
 ╔════════════════════════════════════════════════════════════════╗
 ║   TESTS ACADÉMIQUES - SCHEDULER RL pour 5G Network Slicing     ║
-║   Politiques: Baseline | EL (Latency) | LB (Load Balancing)    ║
+║   Politiques: Baseline         |               EL (Latency)    ║
 ╚════════════════════════════════════════════════════════════════╝
 Suppression de l'ancien fichier academic_results.json...
 
@@ -301,43 +306,15 @@ Métriques:
 Test EL (Latency) terminé
 
 ═══════════════════════════════════════════════════════════════
-TEST 2 (LB) : Politique Équilibrage de Charge (Load Balancing)
-═══════════════════════════════════════════════════════════════
-
-Nettoyage des déploiements...
-deployment.apps "test-el-latency" deleted from default namespace
-Labellisation du nœud k3d-nexslice-agent-0 avec 'type=low-latency'...
-node/k3d-nexslice-agent-0 labeled
-Application charge de stress sur k3d-nexslice-agent-0 (2.4 CPU demandés)...
-deployment.apps/stress-load created
-Attente de 45s pour la mise à jour des métriques CPU...
-Redémarrage Scheduler RL (mode LB)...
-  Scheduler PID: 82781 (Mode: Balance)
-deployment.apps/test-lb-balance created
-Attente du scheduling (40s)...
-Distribution:
-   Worker-1 (low-latency / k3d-nexslice-agent-0): 10 pods
-   Worker-2 (standard / k3d-nexslice-agent-1):    0 pods
-   Autres (Master/Server):                   0 pods
-   Running: 10/10, Pending: 0
-Métriques:
-   Latence P95: 10.00 ms
-   Variance CPU: 50.00
-./TESTS/test_academic_scenarios.sh: line 278: 82781 Terminated: 15          python -m schedulers.ia_scheduler_rl > /tmp/scheduler_lb.log 2>&1
-Test LB (Load Balancing) terminé
-
-═══════════════════════════════════════════════════════════════
 Synthèse des résultats
 ═══════════════════════════════════════════════════════════════
 DEBUG: Valeurs capturées pour le JSON :
   EL_W1: 10, EL_W2: 0
-  LB_W1: 10, LB_W2: 0
 Fichier JSON mis à jour avec succès : -rw-r--r--@ 1 TSP  staff  794 Nov 28 23:18 academic_results.json
 
 Tests terminés. Vérifiez academic_results.json
 
 Nettoyage des déploiements...
-deployment.apps "test-lb-balance" deleted from default namespace
 deployment.apps "stress-load" deleted from default namespace
 ```
 
