@@ -66,7 +66,7 @@ L'analyse de la littérature scientifique et technique met en évidence une limi
 Pour répondre à l'objectif de minimisation de la latence, nous avons développé une architecture logicielle spécifique, qui est justifiée par les contraintes de simulation et de reproductibilité.
 
 #### 2.1. Infrastructure de Simulation : Le Choix de la Conteneurisation (k3d)
-Lors de nos travaux préliminaires, l'utilisation de machines virtuelles classiques s'est avérée complexe à cause de l'architecture différentes de nos processeurs (Mac/PC).
+Lors de nos travaux préliminaires, l'utilisation de machines virtuelles s'est avérée complexe à cause de l'architecture différentes de nos processeurs (Mac/PC).
 * Solution : Migration vers une architecture conteneurisée avec k3d (Kubernetes dans Docker).
 * Précision : L'environnement nexslice dans nos scripts correspond ici à un cluster k3d local simulant une topologie Edge.
 * Justification : Cela garantit la reproductibilité des résultats. Et cela permet de simuler un cluster hétérogène sur une seule machine physique.
